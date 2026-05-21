@@ -3,6 +3,7 @@
 // SF-12, SF-13 : brisques, bonus dernier pli, victoire
 // ============================================================
 
+import { initialiserPartie } from './init'
 import type { GameState, GameConfig, Couleur } from '../types'
 import { logger } from '../utils/logger'
 
@@ -171,7 +172,6 @@ export function initialiserNouvelleManche(
   state: GameState,
   config: GameConfig
 ): GameState {
-  const { initialiserPartie } = require('./init')
   const { state: newState } = initialiserPartie(config)
 
   // Conserver les scores et le numéro de manche
