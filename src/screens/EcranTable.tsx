@@ -1,0 +1,300 @@
+// ============================================================
+// ÉCRAN TABLE — IT-4 (avec annonces)
+// ============================================================
+
+import React, { useState } from 'react'
+import type { GameState, GameConfig, Carte, CombinaisonDisponible } from '../types'
+import { CarteComponent } from '../components/ui/Carte'
+import { PanneauScore }   from '../components/ui/PanneauScore'
+import { AnnouncementPanel, HistoriqueAnnonces } from '../components/ui/AnnouncementPanel'
+import type { PhaseUI } from '../hooks/useGameEngine'
+
+interface TableJeuProps {
+  state: GameState
+  config: GameConfig
+  phaseUI: PhaseUI
+  iaReflechit: boolean
+  messageInfo: string
+  dernierPliVainqueur: (0 | 1) | null
+  combisDisponibles: CombinaisonDisponible[]
+  peutPasser: boolean
+  onPause: () => void
+  onJouerCarte: (carteId: string) => void
+  onAnnoncer: (combi: CombinaisonDisponible) => void
+  onPasser: () => void
+}
+
+export const EcranTable: React.FC<TableJeuProps> = ({
+  state, config, phaseUI, iaReflechit, messageInfo,
+  dernierPliVainqueur, combisDisponibles, peutPasser,
+  onPause, onJouerCarte, onAnnoncer, onPasser,
+}) => {
+  const [carteSelectionnee, setCarteSelectionnee] = useState<string | null>(null)
+  const joueurHumain = state.joueurs[0]
+  const joueurIA     = state.joueurs[1]
+
+  // Pendant la phase annonce, on ne joue pas de carte
+  const humainPeutJouer = phaseUI === 'attente_joueur' && !peutPasser
+  const annonces = state.annonces ?? []
+
+  const handleClick = (carte: Carte) => {
+    if (!humainPeutJouer) return
+    setCarteSelectionnee(prev => prev === carte.id ? null : carte.id)
+  }
+  const handleDoubleClick = (carte: Carte) => {
+    if (!humainPeutJouer) return
+    setCarteSelectionnee(null)
+    onJouerCarte(carte.id)
+  }
+  const handleJouerSelectionne = () => {
+    if (carteSelectionnee) { onJouerCarte(carteSelectionnee); setCarteSelectionnee(null) }
+  }
+
+  return (
+    <div
+      className="min-h-screen flex flex-col select-none overflow-hidden"
+      style={{ background: 'linear-gradient(180deg,#0a2410 0%,#0d3320 50%,#0a2410 100%)' }}
+    >
+      {/* Score */}
+      <PanneauScore state={state} onPause={onPause} />
+
+      {/* Bandeau phase finale */}
+      {state.phase === 'finale' && (
+        <div className="bg-red-900/80 border-y border-red-500/40 px-4 py-1 text-center">
+          <span className="text-red-300 text-xs font-bold tracking-widest uppercase">
+            ⚡ Phase finale — Obligation de fournir la couleur
+          </span>
+        </div>
+      )}
+
+      {/* Bandeau info / IA */}
+      {(messageInfo || iaReflechit) && (
+        <div className={`px-4 py-1 text-center text-xs border-b transition-all ${
+          iaReflechit ? 'bg-blue-900/40 border-blue-500/20 text-blue-300' : 'bg-white/5 border-white/10 text-white/50'
+        }`}>
+          {iaReflechit && <span className="mr-2 animate-pulse">●</span>}
+          {messageInfo}
+        </div>
+      )}
+
+      {/* Zone IA */}
+      <div className="px-4 pt-3 pb-2 flex-shrink-0">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs text-white/30 font-medium flex items-center gap-1.5">
+            🤖 {joueurIA.nom}
+            {iaReflechit && <span className="text-blue-400 text-[10px] animate-pulse">réfléchit…</span>}
+          </span>
+          <span className="text-xs text-white/20 font-mono">
+            {joueurIA.main.length + joueurIA.cartesEtalees.length} cartes
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5 min-h-[62px]">
+          {joueurIA.main.map(carte => (
+            <CarteComponent
+              key={carte.id}
+              carte={{ ...carte, faceUp: false, etat: 'faceDown' }}
+              taille="sm"
+            />
+          ))}
+          {state.pliEnCours.carteJoueur1 && (
+            <div className="ml-2 ring-2 ring-blue-400/40 rounded-lg">
+              <CarteComponent
+                carte={{ ...state.pliEnCours.carteJoueur1, faceUp: true, etat: 'played' }}
+                taille="sm"
+              />
+            </div>
+          )}
+        </div>
+        {/* Cartes étalées IA */}
+        {joueurIA.cartesEtalees.length > 0 && (
+          <div className="mt-1.5">
+            <span className="text-[9px] text-white/20 uppercase tracking-widest">Étalées IA</span>
+            <div className="flex flex-wrap gap-1 mt-0.5">
+              {joueurIA.cartesEtalees.map(c => (
+                <CarteComponent key={c.id} carte={{ ...c, faceUp: true }} taille="sm" />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mx-4 border-t border-white/10" />
+
+      {/* Zone centrale */}
+      <ZoneCentrale state={state} dernierPliVainqueur={dernierPliVainqueur} />
+
+      <div className="mx-4 border-t border-white/10" />
+
+      {/* Zone joueur humain */}
+      <div className="px-4 pt-2 flex-shrink-0" style={{ paddingBottom: peutPasser ? '160px' : '12px' }}>
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs text-white/50 font-medium">
+            👤 {joueurHumain.nom} — {joueurHumain.main.length + joueurHumain.cartesEtalees.length} cartes
+          </span>
+          <div className="flex items-center gap-3">
+            {carteSelectionnee && humainPeutJouer && (
+              <button
+                onClick={handleJouerSelectionne}
+                className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-[#0a1628] text-xs font-bold rounded-lg cursor-pointer transition-colors"
+              >
+                ▶ Jouer
+              </button>
+            )}
+            <span className="text-xs text-white/30 font-mono">
+              Brisques : {compterBrisques(joueurHumain.pileRemportee)}
+            </span>
+          </div>
+        </div>
+
+        {/* Main humain */}
+        <div className="flex flex-wrap gap-2 min-h-[100px]">
+          {joueurHumain.main.map(carte => {
+            const estSelectionnee = carteSelectionnee === carte.id
+            const etat = !humainPeutJouer ? 'disabled' : estSelectionnee ? 'selected' : 'faceUp'
+            return (
+              <CarteComponent
+                key={carte.id}
+                carte={{ ...carte, faceUp: true, etat }}
+                taille="md"
+                onClick={humainPeutJouer ? handleClick : undefined}
+                onDoubleClick={humainPeutJouer ? handleDoubleClick : undefined}
+              />
+            )
+          })}
+        </div>
+
+        {/* Cartes étalées humain — sélectionnables et jouables comme la main */}
+        {joueurHumain.cartesEtalees.length > 0 && (
+          <div className="mt-2">
+            <span className="text-[10px] text-white/25 uppercase tracking-widest">Étalées</span>
+            <div className="flex flex-wrap gap-1.5 mt-1">
+              {joueurHumain.cartesEtalees.map(carte => {
+                const estSelectionnee = carteSelectionnee === carte.id
+                const dansCombi = combisDisponibles.some(c => c.cartesIds.includes(carte.id))
+                // Priorité : sélectionnée > disabled > highlighted > faceUp
+                const etat = !humainPeutJouer
+                  ? 'disabled'
+                  : estSelectionnee
+                  ? 'selected'
+                  : dansCombi
+                  ? 'highlighted'
+                  : 'faceUp'
+                return (
+                  <CarteComponent
+                    key={carte.id}
+                    carte={{ ...carte, faceUp: true, etat }}
+                    taille="sm"
+                    onClick={humainPeutJouer ? handleClick : undefined}
+                    onDoubleClick={humainPeutJouer ? handleDoubleClick : undefined}
+                  />
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Historique annonces */}
+      <HistoriqueAnnonces annonces={annonces} />
+
+      {/* Barre info */}
+      <div className="flex items-center justify-between px-4 py-1 bg-black/20 border-t border-white/5 text-[10px] text-white/20 font-mono flex-shrink-0">
+        <span>Manche {state.mancheNumero}</span>
+        <span>Seuil {config.seuilVictoire.toLocaleString('fr-FR')} pts</span>
+        <span>Pioche {state.nbCartesRestantes}</span>
+      </div>
+
+      {/* Panneau annonces (overlay bas) */}
+      {peutPasser && combisDisponibles.length > 0 && (
+        <AnnouncementPanel
+          combisDisponibles={combisDisponibles}
+          annonces={annonces}
+          onAnnoncer={onAnnoncer}
+          onPasser={onPasser}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Zone centrale ──────────────────────────────────────────────
+
+const ZoneCentrale: React.FC<{
+  state: GameState
+  dernierPliVainqueur: (0 | 1) | null
+}> = ({ state, dernierPliVainqueur }) => {
+  const { pliEnCours, nbCartesRestantes, couleurAtout } = state
+  const c0 = pliEnCours.carteJoueur0
+  const c1 = pliEnCours.carteJoueur1
+  const isRouge = couleurAtout === 'hearts' || couleurAtout === 'diamonds'
+
+  return (
+    <div className="flex items-center justify-center gap-6 py-3 px-4 flex-shrink-0">
+      <SlotCarte label="Vous" carte={c0} estVainqueur={dernierPliVainqueur === 0} />
+
+      <div className="flex flex-col items-center gap-1.5 min-w-20">
+        <PiocheVisuel nbCartes={nbCartesRestantes} />
+        <span className="text-[10px] text-white/30 font-mono">{nbCartesRestantes}</span>
+        {couleurAtout ? (
+          <div className="text-center leading-tight">
+            <span className="text-[9px] text-white/20 block uppercase tracking-wider">Atout</span>
+            <span className="text-xl font-bold" style={{ color: isRouge ? '#e74c3c' : '#ecf0f1' }}>
+              {couleurAtout === 'hearts' ? '♥' : couleurAtout === 'diamonds' ? '♦' : couleurAtout === 'spades' ? '♠' : '♣'}
+            </span>
+          </div>
+        ) : (
+          <span className="text-[9px] text-white/15 italic">Atout ?</span>
+        )}
+      </div>
+
+      <SlotCarte label="IA" carte={c1} estVainqueur={dernierPliVainqueur === 1} />
+    </div>
+  )
+}
+
+const SlotCarte: React.FC<{ label: string; carte: Carte | null; estVainqueur: boolean }> = ({
+  label, carte, estVainqueur,
+}) => (
+  <div className="flex flex-col items-center gap-1">
+    <span className={`text-[10px] uppercase tracking-widest ${estVainqueur ? 'text-amber-400 font-bold' : 'text-white/25'}`}>
+      {estVainqueur ? '★ ' : ''}{label}
+    </span>
+    {carte ? (
+      <div className={estVainqueur ? 'ring-2 ring-amber-400/50 rounded-lg' : ''}>
+        <CarteComponent carte={{ ...carte, etat: 'played' }} taille="md" />
+      </div>
+    ) : (
+      <div className="w-20 h-[116px] rounded-lg border-2 border-dashed border-white/8 flex items-center justify-center">
+        <span className="text-white/12 text-xs">—</span>
+      </div>
+    )}
+  </div>
+)
+
+const PiocheVisuel: React.FC<{ nbCartes: number }> = ({ nbCartes }) => {
+  if (nbCartes === 0) {
+    return (
+      <div className="w-14 h-20 rounded-lg border-2 border-dashed border-white/12 flex items-center justify-center">
+        <span className="text-white/20 text-[10px]">Vide</span>
+      </div>
+    )
+  }
+  const layers = Math.min(4, Math.ceil(nbCartes / 30))
+  return (
+    <div className="relative w-14 h-20">
+      {Array.from({ length: layers }).map((_, i) => (
+        <div key={i} className="absolute rounded-lg bg-[#1e3a6b] border border-[#2d5aa0]"
+          style={{ width: 56, height: 78, top: -(i * 1.5), left: i, zIndex: i }} />
+      ))}
+      <div className="absolute inset-0 rounded-lg bg-[#1e3a6b] border border-[#4a7fd4] z-10 flex items-center justify-center">
+        <span className="text-[#4a7fd4] text-xl opacity-50">♦</span>
+      </div>
+    </div>
+  )
+}
+
+function compterBrisques(pile: Carte[]): number {
+  return pile.filter(c => c.rang === 'A' || c.rang === '10').length
+}
+
+export default EcranTable
