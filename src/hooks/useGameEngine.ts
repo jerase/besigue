@@ -16,7 +16,7 @@ import { detecterCombinaisonsDisponibles, appliquerAnnonce, gererCassureMariageA
 import { appliquerFinManche, mancheTerminee, initialiserNouvelleManche } from '../core/finManche'
 import type { ResultatManche } from '../core/finManche'
 import { choisirCarteIA, delaiSimule, choisirAnnonceIA } from '../core/ia'
-import { sauvegarder, chargerSauvegarde, supprimerSauvegarde } from '../utils/persistence'
+import { sauvegarder, chargerSauvegarde, supprimerSauvegarde, ajouterHistorique } from '../utils/persistence'
 import { logger } from '../utils/logger'
 
 export type PhaseUI =
@@ -44,6 +44,7 @@ export interface UseGameEngineReturn {
   allerConfig: () => void
   allerPause: () => void
   allerRegles: () => void
+  allerTutoriel: () => void
   retourDepuisRegles: () => void
   retourDepuisPause: () => void
   demarrerPartie: (config: GameConfig) => void
@@ -79,6 +80,7 @@ export function useGameEngine(): UseGameEngineReturn {
   // ── Navigation ────────────────────────────────────────────
 
   const allerAccueil       = useCallback(() => setEcran('accueil'), [])
+  const allerTutoriel      = useCallback(() => setEcran('tutoriel' as any), [])
   const allerConfig        = useCallback(() => setEcran('config'), [])
   const allerPause         = useCallback(() => setEcran('pause'), [])
   const allerRegles        = useCallback(() => setEcran('regles'), [])
@@ -141,20 +143,6 @@ export function useGameEngine(): UseGameEngineReturn {
       // Humain vainqueur : chercher combis disponibles
       const combis = detecterCombinaisonsDisponibles(s, 0)
       if (combis.length > 0) {
-        // Accumuler dans combisEnAttente sans encore piocher
-        const nouvellesEnAttente = [
-          ...(s.combisEnAttente?.[0] ?? []),
-          ...combis.filter(nc =>
-            !(s.combisEnAttente?.[0] ?? []).some(ea => ea.nom === nc.nom && ea.cartesIds.join() === nc.cartesIds.join())
-          ),
-        ]
-        const newState: GameState = {
-          ...s,
-          combisEnAttente: { ...(s.combisEnAttente ?? { 0: [], 1: [] }), 0: nouvellesEnAttente },
-        }
-        setState(newState)
-        sauvegarderEtat(cfg, newState, h)
-        // Afficher le panneau d'annonce
         setCombisDisponibles(combis)
         setPhaseAnnonce(true)
         setPhaseUI('attente_annonce')
@@ -225,59 +213,6 @@ export function useGameEngine(): UseGameEngineReturn {
       setPhaseUI('fin_manche')
       setEcran('fin')
       return
-    }
-
-    // ── Vérifier combis en attente pour le joueur actif ──────
-    if (joueurActif === 0) {
-      const enAttente = s.combisEnAttente?.[0] ?? []
-      // Recalculer les combis disponibles (certaines peuvent avoir été posées)
-      const combisActuelles = detecterCombinaisonsDisponibles(s, 0)
-      // Filtrer : garder seulement celles encore valides
-      const combisValides = combisActuelles.filter(ca =>
-        enAttente.some(ea => ea.nom === ca.nom)
-      )
-
-      if (combisValides.length > 0) {
-        setCombisDisponibles(combisValides)
-        setPhaseAnnonce(true)
-        setPhaseUI('attente_annonce')
-        setMessageInfo('Vous avez des combinaisons à poser. Étalez ou passez pour jouer.')
-        return
-      }
-      // Nettoyer les combis en attente épuisées
-      if (enAttente.length > 0) {
-        const newState = { ...s, combisEnAttente: { ...(s.combisEnAttente ?? { 0: [], 1: [] }), 0: [] } }
-        setState(newState)
-      }
-    } else {
-      // IA : vérifier combis en attente
-      const enAttenteIA = s.combisEnAttente?.[1] ?? []
-      if (enAttenteIA.length > 0) {
-        const combisActuelles = detecterCombinaisonsDisponibles(s, 1)
-        const combisValides = combisActuelles.filter(ca =>
-          enAttenteIA.some(ea => ea.nom === ca.nom)
-        )
-        if (combisValides.length > 0) {
-          const meilleure = choisirAnnonceIA(combisValides, s, cfg.niveauIA)
-          const stateApres = appliquerAnnonce(s, 1, meilleure)
-          const stateNettoye: GameState = {
-            ...stateApres,
-            combisEnAttente: {
-              ...(stateApres.combisEnAttente ?? { 0: [], 1: [] }),
-              1: [],
-            },
-          }
-          const h2: ActionJeu[] = [...h, { type: 'ANNONCER' as const, joueur: 1 as const, combinaison: meilleure.nom, points: meilleure.points }]
-          setState(stateNettoye)
-          setHistory(h2)
-          sauvegarderEtat(cfg, stateNettoye, h2)
-          timerRef.current = setTimeout(() => lancerTourSuivant(stateNettoye, cfg, h2, joueurActif), 400)
-          return
-        }
-        // Nettoyer
-        const newState = { ...s, combisEnAttente: { ...(s.combisEnAttente ?? { 0: [], 1: [] }), 1: [] } }
-        setState(newState)
-      }
     }
 
     // ── Jouer normalement ─────────────────────────────────────
@@ -355,11 +290,11 @@ export function useGameEngine(): UseGameEngineReturn {
       type: 'ANNONCER', joueur: 0, combinaison: combi.nom, points: combi.points,
     }]
 
-    // Retirer la combi annoncée des en-attente
-    const enAttente = (newState.combisEnAttente?.[0] ?? []).filter(ea => ea.nom !== combi.nom)
+    // Règle : une seule combinaison par pli.
+    // Vider toutes les combisEnAttente — le joueur a utilisé son droit d'annonce pour ce pli.
     const stateNettoye: GameState = {
       ...newState,
-      combisEnAttente: { ...(newState.combisEnAttente ?? { 0: [], 1: [] }), 0: enAttente },
+      combisEnAttente: { ...(newState.combisEnAttente ?? { 0: [], 1: [] }), 0: [] },
     }
 
     setState(stateNettoye)
@@ -369,34 +304,10 @@ export function useGameEngine(): UseGameEngineReturn {
     setPhaseAnnonce(false)
     setMessageInfo('')
 
-    // Vérifier s'il reste d'autres combis disponibles à poser ce tour
-    const autresCombis = detecterCombinaisonsDisponibles(stateNettoye, 0)
-    const autresEnAttente = autresCombis.filter(ac =>
-      enAttente.some(ea => ea.nom === ac.nom)
-    )
-
-    if (autresEnAttente.length > 0) {
-      // Re-proposer les combis restantes
-      const stateUpdate: GameState = {
-        ...stateNettoye,
-        combisEnAttente: { ...(stateNettoye.combisEnAttente ?? { 0: [], 1: [] }), 0: enAttente },
-      }
-      setState(stateUpdate)
-      setCombisDisponibles(autresEnAttente)
-      setPhaseAnnonce(true)
-      setPhaseUI('attente_annonce')
-      setMessageInfo('Vous pouvez poser une autre combinaison, ou passer pour piocher.')
-    } else {
-      // Toutes les combis posées → piocher maintenant
-      const stateVide: GameState = {
-        ...stateNettoye,
-        combisEnAttente: { ...(stateNettoye.combisEnAttente ?? { 0: [], 1: [] }), 0: [] },
-      }
-      setState(stateVide)
-      timerRef.current = setTimeout(() => {
-        effectuerPioche(stateVide, config, newHistory, stateVide.joueurActif as 0 | 1)
-      }, 300)
-    }
+    // Piocher immédiatement après l'annonce (une seule combi par pli, puis pioche)
+    timerRef.current = setTimeout(() => {
+      effectuerPioche(stateNettoye, config, newHistory, stateNettoye.joueurActif as 0 | 1)
+    }, 300)
   }, [state, config, history, sauvegarderEtat, effectuerPioche])
 
   // ── Passer l'annonce → piocher ───────────────────────────
@@ -406,9 +317,14 @@ export function useGameEngine(): UseGameEngineReturn {
     setCombisDisponibles([])
     setPhaseAnnonce(false)
     setMessageInfo('')
-    // Les combisEnAttente restent pour le prochain tour
-    // → effectuer la pioche maintenant
-    effectuerPioche(state, config, history, state.joueurActif as 0 | 1)
+    // Règle : une seule combinaison par pli.
+    // En passant, le droit d'annonce pour ce pli est perdu — vider les combisEnAttente.
+    const stateNettoye: GameState = {
+      ...state,
+      combisEnAttente: { ...(state.combisEnAttente ?? { 0: [], 1: [] }), 0: [] },
+    }
+    setState(stateNettoye)
+    effectuerPioche(stateNettoye, config, history, stateNettoye.joueurActif as 0 | 1)
   }, [state, config, history, effectuerPioche])
 
   // ── Démarrer ──────────────────────────────────────────────
@@ -486,7 +402,7 @@ export function useGameEngine(): UseGameEngineReturn {
     phaseUI, dernierPliVainqueur, iaReflechit, messageInfo,
     combisDisponibles,
     peutPasser: phaseAnnonce,
-    allerAccueil, allerConfig, allerPause, allerRegles,
+    allerAccueil, allerConfig, allerPause, allerRegles, allerTutoriel,
     retourDepuisRegles, retourDepuisPause,
     demarrerPartie, reprendrePartie, abandonnerPartie,
     resultatManche,

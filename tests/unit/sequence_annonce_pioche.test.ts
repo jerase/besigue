@@ -351,3 +351,87 @@ describe('Intégrité — la pioche n\'altère pas les combis détectables', () 
     expect(combisApres.some(c => c.nom === '4_as')).toBe(true)
   })
 })
+
+// ============================================================
+// NON-RÉGRESSION — UNE SEULE COMBINAISON PAR PLI
+// ============================================================
+
+describe('Non-régression — une seule combinaison par pli', () => {
+
+  it('combisEnAttente vidées après annonce (règle une combi par pli)', () => {
+    const atout: Couleur = 'hearts'
+    const dameS  = c('spades',   'Q', 0, 1)
+    const valetD = c('diamonds', 'J', 0, 2)
+    const valetS = c('spades',   'J', 0, 3)
+    const valetH = c(atout,      'J', 0, 4)
+    const valetC = c('clubs',    'J', 0, 5)
+
+    let state = makeStateApresVictoirePli([dameS, valetD, valetS, valetH, valetC], [], [], atout)
+
+    const combis = detecterCombinaisonsDisponibles(state, 0)
+    expect(combis.some(c => c.nom === 'besigue')).toBe(true)
+    expect(combis.some(c => c.nom === '4_valet')).toBe(true)
+
+    // Annoncer le bésigue
+    const besigue = combis.find(c => c.nom === 'besigue')!
+    state = appliquerAnnonce(state, 0, besigue)
+
+    // Simuler ce que fait le hook après annonce : vider combisEnAttente
+    state = { ...state, combisEnAttente: { 0: [], 1: [] } }
+
+    // Aucune combi en attente → pas de reproposition automatique
+    expect(state.combisEnAttente[0]).toHaveLength(0)
+
+    // Le carré de valets sera disponible AU TOUR SUIVANT
+    const combisApres = detecterCombinaisonsDisponibles(state, 0)
+    expect(combisApres.some(c => c.nom === '4_valet')).toBe(true)
+  })
+
+  it('combisEnAttente vidées après passage (règle une combi par pli)', () => {
+    const dameS  = c('spades',   'Q', 0, 1)
+    const valetD = c('diamonds', 'J', 0, 2)
+
+    let state = makeStateApresVictoirePli([dameS, valetD], [], [])
+    const combis = detecterCombinaisonsDisponibles(state, 0)
+    expect(combis.some(c => c.nom === 'besigue')).toBe(true)
+
+    // Simuler "passer" : combisEnAttente vidées
+    state = { ...state, combisEnAttente: { 0: [], 1: [] } }
+    expect(state.combisEnAttente[0]).toHaveLength(0)
+
+    // Au tour suivant : bésigue toujours disponible (cartes non jouées)
+    const combisApres = detecterCombinaisonsDisponibles(state, 0)
+    expect(combisApres.some(c => c.nom === 'besigue')).toBe(true)
+  })
+
+  it('scénario du bug : bésigue posé → carré valets non reproposé ce tour, mais disponible tour suivant', () => {
+    const atout: Couleur = 'clubs'
+    const dameS  = c('spades',   'Q', 0, 1)
+    const valetD = c('diamonds', 'J', 0, 2)
+    const valetS = c('spades',   'J', 0, 3)
+    const valetH = c('hearts',   'J', 0, 4)
+    const valetC = c(atout,      'J', 0, 5)
+
+    let state = makeStateApresVictoirePli([dameS, valetD, valetS, valetH, valetC], [], [], atout)
+
+    // Les deux combis sont disponibles
+    const combis = detecterCombinaisonsDisponibles(state, 0)
+    expect(combis.filter(c => c.nom === 'besigue' || c.nom === '4_valet')).toHaveLength(2)
+
+    // Joueur annonce le bésigue
+    const besigue = combis.find(c => c.nom === 'besigue')!
+    state = appliquerAnnonce(state, 0, besigue)
+    // Règle : vider combisEnAttente → le carré valets n'est PAS reproposé ce tour
+    state = { ...state, combisEnAttente: { 0: [], 1: [] } }
+
+    // Ce tour : pas de combi en attente (correct)
+    expect(state.combisEnAttente[0]).toHaveLength(0)
+
+    // Tour suivant : le carré de valets est encore détectable
+    const combisToursuvant = detecterCombinaisonsDisponibles(state, 0)
+    expect(combisToursuvant.some(c => c.nom === '4_valet')).toBe(true)
+
+    // Score après bésigue seulement
+    expect(state.joueurs[0].marquePoints).toBe(100) // premier bésigue = 100
+  })
+})
