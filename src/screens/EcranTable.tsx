@@ -3,11 +3,261 @@
 // ============================================================
 
 import React, { useState } from 'react'
-import type { GameState, GameConfig, Carte, CombinaisonDisponible } from '../types'
+import type { GameState, GameConfig, Carte, CombinaisonDisponible, AnnoncePosee } from '../types'
 import { CarteComponent } from '../components/ui/Carte'
 import { PanneauScore }   from '../components/ui/PanneauScore'
 import { AnnouncementPanel, HistoriqueAnnonces } from '../components/ui/AnnouncementPanel'
 import type { PhaseUI } from '../hooks/useGameEngine'
+
+// ── Groupement des cartes étalées (mariages + bésigues superposés) ──
+
+type GroupeEtalee =
+  | { type: 'mariage'; roi: Carte; dame: Carte }
+  | { type: 'besigue'; dame: Carte; valet: Carte }
+  | { type: 'seule';   carte: Carte }
+
+/**
+ * Groupe les cartes étalées d'un joueur :
+ * - paires de mariage (roi + dame) → superposées
+ * - paires de bésigue (dame♠ + valet♦) → superposées
+ * - toutes les autres cartes → isolées
+ */
+export function grouperCartesEtalees(
+  cartesEtalees: Carte[],
+  annonces: AnnoncePosee[],
+  joueurId: 0 | 1
+): GroupeEtalee[] {
+  // --- Paires de mariage : [roiId, dameId]
+  const pairesMarriage = annonces
+    .filter(a =>
+      a.joueurId === joueurId &&
+      (a.nom === 'mariage_atout' || a.nom === 'mariage_hors_atout') &&
+      a.cartesIds.length === 2
+    )
+    .map(a => ({ roiId: a.cartesIds[0], dameId: a.cartesIds[1] }))
+
+  // --- Paires de bésigue : [dameId, valetId]  (ordre défini dans detecterBesigue)
+  const pairesBesigue = annonces
+    .filter(a =>
+      a.joueurId === joueurId &&
+      a.nom === 'besigue' &&
+      a.cartesIds.length === 2
+    )
+    .map(a => ({ dameId: a.cartesIds[0], valetId: a.cartesIds[1] }))
+
+  const dejaGroupees = new Set<string>()
+  const groupes: GroupeEtalee[] = []
+
+  for (const carte of cartesEtalees) {
+    if (dejaGroupees.has(carte.id)) continue
+
+    // 1. Chercher un mariage
+    const paireMariage = pairesMarriage.find(
+      p => p.roiId === carte.id || p.dameId === carte.id
+    )
+    if (paireMariage) {
+      const autreId = paireMariage.roiId === carte.id ? paireMariage.dameId : paireMariage.roiId
+      const autreCarte = cartesEtalees.find(c => c.id === autreId)
+      if (autreCarte && !dejaGroupees.has(autreCarte.id)) {
+        const roi  = carte.rang === 'K' ? carte : autreCarte
+        const dame = carte.rang === 'Q' ? carte : autreCarte
+        groupes.push({ type: 'mariage', roi, dame })
+        dejaGroupees.add(roi.id)
+        dejaGroupees.add(dame.id)
+        continue
+      }
+    }
+
+    // 2. Chercher un bésigue
+    const paireBesigue = pairesBesigue.find(
+      p => p.dameId === carte.id || p.valetId === carte.id
+    )
+    if (paireBesigue) {
+      const autreId = paireBesigue.dameId === carte.id ? paireBesigue.valetId : paireBesigue.dameId
+      const autreCarte = cartesEtalees.find(c => c.id === autreId)
+      if (autreCarte && !dejaGroupees.has(autreCarte.id)) {
+        const dame  = carte.rang === 'Q' ? carte : autreCarte
+        const valet = carte.rang === 'J' ? carte : autreCarte
+        groupes.push({ type: 'besigue', dame, valet })
+        dejaGroupees.add(dame.id)
+        dejaGroupees.add(valet.id)
+        continue
+      }
+    }
+
+    // 3. Carte isolée
+    groupes.push({ type: 'seule', carte })
+    dejaGroupees.add(carte.id)
+  }
+
+  return groupes
+}
+
+// ── Composant paire de mariage superposée ─────────────────────
+
+interface CartesMarieeProps {
+  roi: Carte
+  dame: Carte
+  taille: 'sm' | 'md'
+  humainPeutJouer: boolean
+  carteSelectionnee: string | null
+  combisDisponibles: CombinaisonDisponible[]
+  onClick: (carte: Carte) => void
+  onDoubleClick: (carte: Carte) => void
+}
+
+const TAILLE_PX = { sm: { w: 52, h: 75 }, md: { w: 80, h: 116 } }
+// Décalage vertical de la dame par rapport au roi (px)
+const OFFSET_Y = { sm: 14, md: 20 }
+// Décalage horizontal léger pour que les deux cartes soient visibles
+const OFFSET_X = { sm: 8, md: 12 }
+
+const CartesMariees: React.FC<CartesMarieeProps> = ({
+  roi, dame, taille, humainPeutJouer,
+  carteSelectionnee, combisDisponibles, onClick, onDoubleClick,
+}) => {
+  const { w, h } = TAILLE_PX[taille]
+  const offY = OFFSET_Y[taille]
+  const offX = OFFSET_X[taille]
+  // La zone englobante doit contenir les deux cartes décalées
+  const totalW = w + offX
+  const totalH = h + offY
+
+  const etatCarte = (carte: Carte) => {
+    if (!humainPeutJouer) return 'disabled' as const
+    if (carteSelectionnee === carte.id) return 'selected' as const
+    if (combisDisponibles.some(c => c.cartesIds.includes(carte.id))) return 'highlighted' as const
+    return 'faceUp' as const
+  }
+
+  return (
+    <div
+      className="relative flex-shrink-0"
+      style={{ width: totalW, height: totalH }}
+      title="Mariage (Roi + Dame)"
+    >
+      {/* Roi — en dessous, décalé en haut à gauche */}
+      <div className="absolute" style={{ top: 0, left: 0, zIndex: 1 }}>
+        <CarteComponent
+          carte={{ ...roi, faceUp: true, etat: etatCarte(roi) }}
+          taille={taille}
+          onClick={humainPeutJouer ? onClick : undefined}
+          onDoubleClick={humainPeutJouer ? onDoubleClick : undefined}
+        />
+      </div>
+      {/* Dame — au-dessus, décalée en bas à droite */}
+      <div className="absolute" style={{ top: offY, left: offX, zIndex: 2 }}>
+        <CarteComponent
+          carte={{ ...dame, faceUp: true, etat: etatCarte(dame) }}
+          taille={taille}
+          onClick={humainPeutJouer ? onClick : undefined}
+          onDoubleClick={humainPeutJouer ? onDoubleClick : undefined}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ── Composant bésigue superposé (valet♦ sur dame♠) ───────────
+
+interface CartesBesigueProps {
+  dame: Carte
+  valet: Carte
+  taille: 'sm' | 'md'
+  humainPeutJouer: boolean
+  carteSelectionnee: string | null
+  combisDisponibles: CombinaisonDisponible[]
+  onClick: (carte: Carte) => void
+  onDoubleClick: (carte: Carte) => void
+}
+
+const CartesBesigue: React.FC<CartesBesigueProps> = ({
+  dame, valet, taille, humainPeutJouer,
+  carteSelectionnee, combisDisponibles, onClick, onDoubleClick,
+}) => {
+  const { w, h } = TAILLE_PX[taille]
+  const offY = OFFSET_Y[taille]
+  const offX = OFFSET_X[taille]
+  const totalW = w + offX
+  const totalH = h + offY
+
+  const etatCarte = (carte: Carte) => {
+    if (!humainPeutJouer) return 'disabled' as const
+    if (carteSelectionnee === carte.id) return 'selected' as const
+    if (combisDisponibles.some(c => c.cartesIds.includes(carte.id))) return 'highlighted' as const
+    return 'faceUp' as const
+  }
+
+  return (
+    <div
+      className="relative flex-shrink-0"
+      style={{ width: totalW, height: totalH }}
+      title="Bésigue (Dame\u2660 + Valet\u2666)"
+    >
+      {/* Dame♠ — en dessous */}
+      <div className="absolute" style={{ top: 0, left: 0, zIndex: 1 }}>
+        <CarteComponent
+          carte={{ ...dame, faceUp: true, etat: etatCarte(dame) }}
+          taille={taille}
+          onClick={humainPeutJouer ? onClick : undefined}
+          onDoubleClick={humainPeutJouer ? onDoubleClick : undefined}
+        />
+      </div>
+      {/* Valet♦ — au-dessus, décalé */}
+      <div className="absolute" style={{ top: offY, left: offX, zIndex: 2 }}>
+        <CarteComponent
+          carte={{ ...valet, faceUp: true, etat: etatCarte(valet) }}
+          taille={taille}
+          onClick={humainPeutJouer ? onClick : undefined}
+          onDoubleClick={humainPeutJouer ? onDoubleClick : undefined}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ── Rendu d'un groupe étalé (factorisation mariage / bésigue / seule) ──
+
+interface RenduGroupeProps {
+  groupe: GroupeEtalee
+  taille: 'sm' | 'md'
+  humainPeutJouer: boolean
+  carteSelectionnee: string | null
+  combisDisponibles: CombinaisonDisponible[]
+  onClick: (carte: Carte) => void
+  onDoubleClick: (carte: Carte) => void
+}
+
+const RenduGroupe: React.FC<RenduGroupeProps> = ({
+  groupe, taille, humainPeutJouer,
+  carteSelectionnee, combisDisponibles, onClick, onDoubleClick,
+}) => {
+  const sharedProps = { taille, humainPeutJouer, carteSelectionnee, combisDisponibles, onClick, onDoubleClick }
+
+  if (groupe.type === 'mariage') {
+    return <CartesMariees roi={groupe.roi} dame={groupe.dame} {...sharedProps} />
+  }
+  if (groupe.type === 'besigue') {
+    return <CartesBesigue dame={groupe.dame} valet={groupe.valet} {...sharedProps} />
+  }
+
+  const carte = groupe.carte
+  const estSelectionnee = carteSelectionnee === carte.id
+  const dansCombi = combisDisponibles.some(c => c.cartesIds.includes(carte.id))
+  const etat = !humainPeutJouer
+    ? 'disabled' as const
+    : estSelectionnee ? 'selected' as const
+    : dansCombi    ? 'highlighted' as const
+    : 'faceUp' as const
+  return (
+    <CarteComponent
+      carte={{ ...carte, faceUp: true, etat }}
+      taille={taille}
+      onClick={humainPeutJouer ? onClick : undefined}
+      onDoubleClick={humainPeutJouer ? onDoubleClick : undefined}
+    />
+  )
+}
 
 interface TableJeuProps {
   state: GameState
@@ -105,13 +355,24 @@ export const EcranTable: React.FC<TableJeuProps> = ({
             </div>
           )}
         </div>
-        {/* Cartes étalées IA */}
+        {/* Cartes étalées IA — mariages et bésigues superposés */}
         {joueurIA.cartesEtalees.length > 0 && (
           <div className="mt-1.5">
             <span className="text-[9px] text-white/20 uppercase tracking-widest">Étalées IA</span>
-            <div className="flex flex-wrap gap-1 mt-0.5">
-              {joueurIA.cartesEtalees.map(c => (
-                <CarteComponent key={c.id} carte={{ ...c, faceUp: true }} taille="sm" />
+            <div className="flex flex-wrap gap-2 mt-0.5 items-end">
+              {grouperCartesEtalees(joueurIA.cartesEtalees, annonces, 1).map((groupe, i) => (
+                <RenduGroupe
+                  key={groupe.type === 'mariage' ? `${groupe.roi.id}-${groupe.dame.id}`
+                     : groupe.type === 'besigue' ? `${groupe.dame.id}-${groupe.valet.id}`
+                     : groupe.carte.id}
+                  groupe={groupe}
+                  taille="sm"
+                  humainPeutJouer={false}
+                  carteSelectionnee={null}
+                  combisDisponibles={[]}
+                  onClick={() => {}}
+                  onDoubleClick={() => {}}
+                />
               ))}
             </div>
           </div>
@@ -163,32 +424,25 @@ export const EcranTable: React.FC<TableJeuProps> = ({
           })}
         </div>
 
-        {/* Cartes étalées humain — sélectionnables et jouables comme la main */}
+        {/* Cartes étalées humain — mariages et bésigues superposés, toutes cliquables */}
         {joueurHumain.cartesEtalees.length > 0 && (
           <div className="mt-2">
             <span className="text-[10px] text-white/25 uppercase tracking-widest">Étalées</span>
-            <div className="flex flex-wrap gap-1.5 mt-1">
-              {joueurHumain.cartesEtalees.map(carte => {
-                const estSelectionnee = carteSelectionnee === carte.id
-                const dansCombi = combisDisponibles.some(c => c.cartesIds.includes(carte.id))
-                // Priorité : sélectionnée > disabled > highlighted > faceUp
-                const etat = !humainPeutJouer
-                  ? 'disabled'
-                  : estSelectionnee
-                  ? 'selected'
-                  : dansCombi
-                  ? 'highlighted'
-                  : 'faceUp'
-                return (
-                  <CarteComponent
-                    key={carte.id}
-                    carte={{ ...carte, faceUp: true, etat }}
-                    taille="sm"
-                    onClick={humainPeutJouer ? handleClick : undefined}
-                    onDoubleClick={humainPeutJouer ? handleDoubleClick : undefined}
-                  />
-                )
-              })}
+            <div className="flex flex-wrap gap-2 mt-1 items-end">
+              {grouperCartesEtalees(joueurHumain.cartesEtalees, annonces, 0).map((groupe) => (
+                <RenduGroupe
+                  key={groupe.type === 'mariage' ? `${groupe.roi.id}-${groupe.dame.id}`
+                     : groupe.type === 'besigue' ? `${groupe.dame.id}-${groupe.valet.id}`
+                     : groupe.carte.id}
+                  groupe={groupe}
+                  taille="sm"
+                  humainPeutJouer={humainPeutJouer}
+                  carteSelectionnee={carteSelectionnee}
+                  combisDisponibles={combisDisponibles}
+                  onClick={handleClick}
+                  onDoubleClick={handleDoubleClick}
+                />
+              ))}
             </div>
           </div>
         )}

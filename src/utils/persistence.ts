@@ -45,6 +45,10 @@ export function chargerSauvegarde(): Sauvegarde | null {
       logger.warn('SAVE', 'Version sauvegarde incompatible', { version: save.version })
       return null
     }
+    if (!save.state.annonces) save.state.annonces = []
+    if (!save.state.usagesCartes) save.state.usagesCartes = []
+    if (!save.state.mariagesAtoutActifs) save.state.mariagesAtoutActifs = { 0: [], 1: [] }
+    if (!save.state.combisEnAttente) save.state.combisEnAttente = { 0: [], 1: [] }
     logger.info('SAVE', 'Sauvegarde chargée', { partieId: save.state.partieId, timestamp: save.timestamp })
     return save
   } catch (err) {
@@ -84,6 +88,8 @@ export interface EntreeHistorique {
   nomJ1: string
   nbBrisquesJ0: number
   nbBrisquesJ1: number
+  charlesBezigue: boolean
+  mancheNumero: number
 }
 
 export function ajouterHistorique(entree: EntreeHistorique): void {
@@ -107,4 +113,17 @@ export function chargerHistorique(): EntreeHistorique[] {
   } catch {
     return []
   }
+}
+
+export function horodatage(): string | null {
+  try {
+    const raw = localStorage.getItem('besigue_save')
+    if (!raw) return null
+    const save = JSON.parse(raw) as Sauvegarde
+    return new Date(save.timestamp).toLocaleString('fr-FR')
+  } catch { return null }
+}
+
+export function effacerHistorique(): void {
+  try { localStorage.removeItem('besigue_historique') } catch { /* silencieux */ }
 }

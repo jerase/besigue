@@ -1,43 +1,42 @@
-// ============================================================
-// ÉCRAN 01 — ACCUEIL (SF-05 ÉCRAN-01)
-// ============================================================
-
 import React, { useEffect, useState } from 'react'
-import { sauvegardeExiste } from '../utils/persistence'
+import { sauvegardeExiste, horodatage, chargerHistorique, effacerHistorique } from '../utils/persistence'
 import type { EntreeHistorique } from '../utils/persistence'
-import { chargerHistorique } from '../utils/persistence'
 
 interface AccueilProps {
   onNouvellePartie: () => void
   onReprendrePartie: () => void
   onRegles: () => void
+  onTutoriel?: () => void
 }
 
 export const EcranAccueil: React.FC<AccueilProps> = ({
-  onNouvellePartie,
-  onReprendrePartie,
-  onRegles,
+  onNouvellePartie, onReprendrePartie, onRegles, onTutoriel,
 }) => {
-  const [hasSave, setHasSave] = useState(false)
+  const [hasSave, setHasSave]     = useState(false)
+  const [saveDate, setSaveDate]   = useState<string | null>(null)
   const [historique, setHistorique] = useState<EntreeHistorique[]>([])
+  const [showHisto, setShowHisto] = useState(false)
 
   useEffect(() => {
     setHasSave(sauvegardeExiste())
+    setSaveDate(horodatage())
     setHistorique(chargerHistorique())
   }, [])
+
+  const handleEffacerHisto = () => { effacerHistorique(); setHistorique([]) }
 
   return (
     <div className="min-h-screen bg-[#0a1628] flex flex-col items-center justify-center px-4 relative overflow-hidden">
       {/* Fond décoratif */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 text-[12rem] opacity-[0.03] select-none font-serif">♠</div>
-        <div className="absolute top-1/3 right-1/4 text-[10rem] opacity-[0.03] select-none font-serif text-red-500">♥</div>
-        <div className="absolute bottom-1/4 left-1/3 text-[9rem] opacity-[0.03] select-none font-serif text-red-500">♦</div>
-        <div className="absolute bottom-1/3 right-1/3 text-[11rem] opacity-[0.03] select-none font-serif">♣</div>
+      <div className="absolute inset-0 pointer-events-none select-none">
+        <div className="absolute top-1/4 left-1/4 text-[12rem] opacity-[0.03] font-serif">♠</div>
+        <div className="absolute top-1/3 right-1/4 text-[10rem] opacity-[0.03] font-serif text-red-500">♥</div>
+        <div className="absolute bottom-1/4 left-1/3 text-[9rem] opacity-[0.03] font-serif text-red-500">♦</div>
+        <div className="absolute bottom-1/3 right-1/3 text-[11rem] opacity-[0.03] font-serif">♣</div>
       </div>
 
-      <div className="relative z-10 flex flex-col items-center gap-8 w-full max-w-md">
-        {/* Logo & Titre */}
+      <div className="relative z-10 flex flex-col items-center gap-6 w-full max-w-md">
+        {/* Logo */}
         <div className="text-center">
           <div className="flex justify-center gap-4 mb-4 text-5xl">
             <span className="text-white/20">♠</span>
@@ -49,99 +48,95 @@ export const EcranAccueil: React.FC<AccueilProps> = ({
           <h1 className="text-6xl font-bold text-amber-300 tracking-[0.15em]" style={{ fontFamily: 'Georgia, serif' }}>
             BÉSIGUE
           </h1>
-          <p className="mt-3 text-white/40 text-sm tracking-widest uppercase">
-            Jeu de cartes français
-          </p>
+          <p className="mt-2 text-white/40 text-sm tracking-widest uppercase">Jeu de cartes français</p>
         </div>
 
-        {/* Boutons principaux */}
+        {/* Boutons */}
         <div className="flex flex-col gap-3 w-full">
-          <BoutonAccueil
-            onClick={onNouvellePartie}
-            variante="principal"
-            icone="🃏"
-            label="Nouvelle partie"
-          />
-
+          <Btn onClick={onNouvellePartie} icone="🃏" label="Nouvelle partie" variante="principal" />
           {hasSave && (
-            <BoutonAccueil
+            <Btn
               onClick={onReprendrePartie}
-              variante="secondaire"
               icone="↩"
               label="Reprendre la partie"
-              badge="Sauvegarde disponible"
+              variante="secondaire"
+              badge={saveDate ? `Sauvegardé le ${saveDate}` : 'Sauvegarde disponible'}
             />
           )}
-
-          <BoutonAccueil
-            onClick={onRegles}
-            variante="ghost"
-            icone="📖"
-            label="Règles du jeu"
-          />
+          <div className="flex gap-2">
+            <Btn onClick={onRegles} icone="📖" label="Règles" variante="ghost" className="flex-1" />
+            {onTutoriel && <Btn onClick={onTutoriel} icone="🎓" label="Tutoriel" variante="ghost" className="flex-1" />}
+          </div>
+          {historique.length > 0 && (
+            <Btn
+              onClick={() => setShowHisto(v => !v)}
+              icone="📊"
+              label={`Historique (${historique.length})`}
+              variante="ghost"
+            />
+          )}
         </div>
 
-        {/* Historique des parties */}
-        {historique.length > 0 && (
-          <div className="w-full">
-            <h2 className="text-xs font-bold text-white/30 uppercase tracking-widest mb-3">
-              Parties récentes
-            </h2>
-            <div className="space-y-2">
-              {historique.slice(0, 3).map((h, i) => (
-                <div key={i} className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg px-4 py-2.5">
-                  <div className="text-xs text-white/60">
-                    <span className="font-semibold text-white/80">{h.vainqueur}</span>
-                    <span className="text-white/30 ml-2">a gagné</span>
-                  </div>
-                  <div className="text-xs text-white/40 font-mono">
-                    {h.scoreJ0} – {h.scoreJ1}
-                  </div>
-                  <div className="text-xs text-white/25">
-                    {new Date(h.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
-                  </div>
-                </div>
-              ))}
+        {/* Historique */}
+        {showHisto && historique.length > 0 && (
+          <div className="w-full bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+              <h2 className="text-sm font-bold text-white/50 uppercase tracking-widest">Parties récentes</h2>
+              <button onClick={handleEffacerHisto} className="text-xs text-red-400/60 hover:text-red-400 cursor-pointer">Effacer</button>
+            </div>
+            <div className="divide-y divide-white/5 max-h-60 overflow-y-auto">
+              {historique.map((h, i) => <HistoRow key={i} h={h} />)}
             </div>
           </div>
         )}
 
-        {/* Version */}
-        <p className="text-white/15 text-xs">IT-2 — Bésigue v0.2</p>
+        {/* Dernière partie (compact) */}
+        {!showHisto && historique.length > 0 && (
+          <div className="w-full">
+            <p className="text-xs text-white/30 uppercase tracking-widest mb-2">Dernière partie</p>
+            <HistoRow h={historique[0]} />
+          </div>
+        )}
+
+        <p className="text-white/15 text-xs">IT-7 — Bésigue v0.7</p>
       </div>
     </div>
   )
 }
 
-// ── Bouton accueil ────────────────────────────────────────────
-
-interface BoutonAccueilProps {
-  onClick: () => void
-  variante: 'principal' | 'secondaire' | 'ghost'
-  icone: string
-  label: string
-  badge?: string
+const HistoRow: React.FC<{ h: EntreeHistorique }> = ({ h }) => {
+  const date = new Date(h.date).toLocaleDateString('fr-FR', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  })
+  return (
+    <div className="flex items-center justify-between px-4 py-2.5 bg-white/3">
+      <div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-white/80">{h.vainqueur}</span>
+          {h.charlesBezigue && <span className="text-amber-400 text-xs">⭐</span>}
+          <span className="text-white/30 text-xs">gagne</span>
+        </div>
+        <span className="text-white/30 text-[10px]">{h.nomJ0} {h.scoreJ0} – {h.scoreJ1} {h.nomJ1}</span>
+      </div>
+      <span className="text-white/25 text-[10px]">{date}</span>
+    </div>
+  )
 }
 
-const BoutonAccueil: React.FC<BoutonAccueilProps> = ({ onClick, variante, icone, label, badge }) => {
-  const classes = {
-    principal: 'bg-amber-500 hover:bg-amber-400 text-[#0a1628] font-bold shadow-lg shadow-amber-500/30',
+const Btn: React.FC<{
+  onClick: () => void; icone: string; label: string
+  variante: 'principal' | 'secondaire' | 'ghost'; badge?: string; className?: string
+}> = ({ onClick, icone, label, variante, badge, className = '' }) => {
+  const cls = {
+    principal:  'bg-amber-500 hover:bg-amber-400 text-[#0a1628] font-bold shadow-lg shadow-amber-500/30',
     secondaire: 'bg-blue-600/80 hover:bg-blue-500 text-white font-semibold border border-blue-500/30',
-    ghost: 'bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10',
+    ghost:      'bg-white/5 hover:bg-white/10 text-white/70 border border-white/10',
   }[variante]
-
   return (
-    <button
-      onClick={onClick}
-      className={`relative flex items-center gap-3 px-6 py-4 rounded-xl text-left transition-all duration-200 cursor-pointer ${classes}`}
-    >
-      <span className="text-xl">{icone}</span>
+    <button onClick={onClick} className={`flex items-center gap-3 px-6 py-4 rounded-xl transition-all cursor-pointer ${cls} ${className}`}>
+      <span className="text-xl shrink-0">{icone}</span>
       <span className="text-base">{label}</span>
-      {badge && (
-        <span className="ml-auto text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-          {badge}
-        </span>
-      )}
+      {badge && <span className="ml-auto text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">{badge}</span>}
     </button>
   )
 }

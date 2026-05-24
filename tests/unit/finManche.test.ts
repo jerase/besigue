@@ -218,12 +218,15 @@ describe('appliquerFinManche', () => {
     expect(r.vainqueurManche).toBe(1)
   })
 
-  it('état passe à "terminee" quand un vainqueur est trouvé', () => {
+  it('état passe à "terminee" seulement quand la partie est gagnée (4-0), pas à chaque manche', () => {
     const pileJ0 = Array.from({length: 25}, (_, i) => c('hearts', 'A', i % 4, i))
     const pileJ1 = Array.from({length: 7}, (_, i) => c('spades', 'A', i % 4, i+25))
     const state = setScoresEtPiles(makeState(), 900, 200, pileJ0, pileJ1)
     const r = appliquerFinManche(state)
-    expect(r.state.phase).toBe('terminee')
+    // Vainqueur de manche trouvé, mais la partie n'est pas terminée (compteur [1,0], pas [4,0])
+    expect(r.vainqueurManche).toBe(0)
+    expect(r.vainqueurPartie).toBeNull()
+    expect(r.state.phase).not.toBe('terminee') // la partie continue
   })
 
   it('score négatif bloqué à 0 (SF-19.4)', () => {
@@ -313,6 +316,74 @@ describe('mancheTerminee', () => {
     const joueurs = [...state.joueurs] as typeof state.joueurs
     joueurs[0] = { ...joueurs[0], main: [], cartesEtalees: [] }
     joueurs[1] = { ...joueurs[1], main: [], cartesEtalees: [] }
+    expect(mancheTerminee({ ...state, joueurs })).toBe(false)
+  })
+})
+
+// ============================================================
+// RÉGRESSION — BUG "IA RÉFLÉCHIT" BLOCAGE FIN DE MANCHE
+// Scénario : phase finale, le joueur pose sa dernière carte,
+// le pli est résolu, les mains sont vides. L'engine appelait
+// choisirCarteIA() sur une main vide → carte=undefined → blocage.
+// La correction détecte les mains vides AVANT le tour de l'IA
+// et déclenche appliquerFinManche directement.
+// ============================================================
+
+describe('Régression — mains vides en phase finale (bug IA bloquée)', () => {
+  function makeEtatMansVides(scoreJ0: number, scoreJ1: number): GameState {
+    const state = makeState({ phase: 'finale', dernierVainqueurPli: 1 })
+    const joueurs = [...state.joueurs] as typeof state.joueurs
+    // Les deux joueurs ont joué leur dernière carte : mains et étalées vides
+    joueurs[0] = { ...joueurs[0], main: [], cartesEtalees: [], marquePoints: scoreJ0 }
+    joueurs[1] = { ...joueurs[1], main: [], cartesEtalees: [], marquePoints: scoreJ1 }
+    return { ...state, joueurs }
+  }
+
+  it('mancheTerminee() retourne true quand les deux mains sont vides en phase finale', () => {
+    const state = makeEtatMansVides(490, 10)
+    expect(mancheTerminee(state)).toBe(true)
+  })
+
+  it('appliquerFinManche() fonctionne correctement sur un état mains vides', () => {
+    const state = makeEtatMansVides(490, 10)
+    expect(() => appliquerFinManche(state)).not.toThrow()
+  })
+
+  it('appliquerFinManche() identifie le bon vainqueur même sans cartes', () => {
+    // J0 a plus de points via les brisques finales
+    const s = makeEtatMansVides(800, 100)
+    const joueurs = [...s.joueurs] as typeof s.joueurs
+    // Ajouter des brisques pour J0 pour dépasser 1000
+    joueurs[0] = { ...joueurs[0], pileRemportee: Array.from({ length: 20 }, (_, i) => c('hearts', 'A', i % 4, i)) }
+    joueurs[1] = { ...joueurs[1], pileRemportee: [] }
+    const state = { ...s, joueurs }
+    const r = appliquerFinManche(state)
+    expect(r.vainqueurManche).toBe(0)
+  })
+
+  it('avec mains vides et aucun joueur à 1000 → vainqueurManche null (pas de blocage)', () => {
+    // Personne n'atteint 1000 même après brisques
+    const state = makeEtatMansVides(200, 100)
+    const r = appliquerFinManche(state)
+    // Le résultat doit être calculé sans erreur
+    expect(r).toBeDefined()
+    expect(r.scoreFinJ0).toBeGreaterThanOrEqual(200)
+    expect(r.scoreFinJ1).toBeGreaterThanOrEqual(100)
+  })
+
+  it('mancheTerminee() retourne false si seulement J1 a la main vide', () => {
+    const state = makeState({ phase: 'finale' })
+    const joueurs = [...state.joueurs] as typeof state.joueurs
+    joueurs[1] = { ...joueurs[1], main: [], cartesEtalees: [] }
+    // J0 a encore des cartes — pas terminé
+    expect(mancheTerminee({ ...state, joueurs })).toBe(false)
+  })
+
+  it('mancheTerminee() retourne false si seulement J0 a la main vide', () => {
+    const state = makeState({ phase: 'finale' })
+    const joueurs = [...state.joueurs] as typeof state.joueurs
+    joueurs[0] = { ...joueurs[0], main: [], cartesEtalees: [] }
+    // J1 a encore des cartes — pas terminé
     expect(mancheTerminee({ ...state, joueurs })).toBe(false)
   })
 })

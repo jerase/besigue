@@ -5,24 +5,30 @@ import { EcranConfig }    from './screens/EcranConfig'
 import { EcranTable }     from './screens/EcranTable'
 import { EcranRegles }    from './screens/EcranRegles'
 import { EcranFinManche } from './screens/EcranFinManche'
+import { EcranTutoriel }  from './screens/EcranTutoriel'
 import { MenuPause }      from './screens/MenuPause'
 
 function App() {
   const game = useGameEngine()
+  const ecran = game.ecran as string
 
   return (
     <>
-      {game.ecran === 'accueil' && (
+      {ecran === 'accueil' && (
         <EcranAccueil
           onNouvellePartie={game.allerConfig}
           onReprendrePartie={() => game.reprendrePartie()}
           onRegles={game.allerRegles}
+          onTutoriel={game.allerTutoriel}
         />
       )}
-      {game.ecran === 'config' && (
+      {ecran === 'tutoriel' && (
+        <EcranTutoriel onTerminer={game.allerConfig} />
+      )}
+      {ecran === 'config' && (
         <EcranConfig onCommencer={game.demarrerPartie} onRetour={game.allerAccueil} />
       )}
-      {game.ecran === 'table' && game.state && game.config && (
+      {ecran === 'table' && game.state && game.config && (
         <EcranTable
           state={game.state}
           config={game.config}
@@ -38,7 +44,7 @@ function App() {
           onPasser={game.passerAnnonce}
         />
       )}
-      {game.ecran === 'fin' && game.resultatManche && game.config && (
+      {ecran === 'fin' && game.resultatManche && game.config && (
         <EcranFinManche
           resultat={game.resultatManche}
           config={game.config}
@@ -46,14 +52,14 @@ function App() {
           onTerminer={game.abandonnerPartie}
         />
       )}
-      {game.ecran === 'pause' && (
+      {ecran === 'pause' && (
         <MenuPause
           onReprendre={game.retourDepuisPause}
           onRegles={game.allerRegles}
           onAbandonner={game.abandonnerPartie}
         />
       )}
-      {game.ecran === 'regles' && (
+      {ecran === 'regles' && (
         <EcranRegles onRetour={game.retourDepuisRegles} />
       )}
     </>

@@ -108,6 +108,8 @@ export interface GameState {
   atoutDefini: boolean
   premierBesiguePose: boolean
   bonusDernierPli: (0 | 1) | null
+  // Compteur de manches gagnées [J0, J1] — remis à 0 chez l'adversaire à chaque victoire
+  compteurManches: [number, number]
   // IT-4 — Annonces
   annonces: AnnoncePosee[]
   // Combinaisons remportées mais pas encore étalées (posées après la pioche du tour suivant)

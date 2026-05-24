@@ -27,13 +27,16 @@ function makeState(scoreJ0: number, scoreJ1: number, brisquesJ0: number, brisque
 
 describe('IT-5 intégration — scénarios de fin de manche', () => {
 
-  it('scénario victoire simple : J0 atteint 1000 avec les brisques', () => {
+  it('scénario victoire simple : J0 atteint 1000 avec les brisques — manche gagnée, partie continue', () => {
     // J0 : 800 pts + 20 brisques × 10 = 800 + 200 = 1000
     const state = makeState(800, 400, 20, 12)
     const r = appliquerFinManche(state)
     expect(r.vainqueurManche).toBe(0)
     expect(r.scoreFinJ0).toBeGreaterThanOrEqual(1000)
-    expect(r.state.phase).toBe('terminee')
+    // Première manche gagnée : compteur [1,0], partie pas terminée
+    expect(r.compteurManches).toEqual([1, 0])
+    expect(r.vainqueurPartie).toBeNull()
+    expect(r.state.phase).not.toBe('terminee')
   })
 
   it('scénario égalité brisques : les deux reçoivent +160', () => {

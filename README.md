@@ -1,71 +1,80 @@
-# Bésigue — Itération 1 : Moteur de cartes
+# 🂡 Bésigue
 
-## Stack
-React 18 + TypeScript + Tailwind CSS 4 · Vite 6 · Vitest 2
+Jeu de cartes Bésigue — implémentation web jouable contre une IA.
 
-## Lancer le projet
+## 🌐 Tester en ligne
+
+**Aucune installation requise.** Accès direct depuis un navigateur :
+> URL fournie par le déployeur (ex: `https://besigue.vercel.app`)
+
+Compatible PC, tablette et mobile (Chrome, Firefox, Safari, Edge).
+
+---
+
+## 🚀 Déployer sur Vercel
+
+### Prérequis
+- Compte [GitHub](https://github.com) (gratuit)
+- Compte [Vercel](https://vercel.com) (gratuit, connecté à GitHub)
+
+### Étape 1 — Pousser sur GitHub
 
 ```bash
-npm install
-npm run dev        # http://localhost:5173
+# Depuis le dossier besigue/
+git init
+git add .
+git commit -m "Bésigue IT-7"
 ```
 
-## Tests
+Sur [github.com](https://github.com/new) → créer un repo `besigue` → puis :
 
 ```bash
-npm test               # 60 tests
-npm run test:watch     # mode watch
-npm run test:coverage  # rapport de couverture HTML
+git remote add origin https://github.com/TON_COMPTE/besigue.git
+git push -u origin main
 ```
 
-## Build production
+### Étape 2 — Déployer sur Vercel
+
+1. Va sur [vercel.com](https://vercel.com) → **Sign up** avec GitHub
+2. **Add New… → Project** → sélectionne le repo `besigue`
+3. Vercel détecte Vite automatiquement. Vérifie :
+   - Build Command : `npm run build`
+   - Output Directory : `dist`
+4. Clique **Deploy**
+
+⏱ ~2 minutes. Tu obtiens une URL publique :
+`https://besigue-xxx.vercel.app`
+
+### Étape 3 — Partager
+
+Envoie l'URL à tes testeurs — aucune installation requise de leur côté.
+
+---
+
+## 💻 Développement local
 
 ```bash
-npm run build && npm run preview
+npm install       # Installer les dépendances
+npm run dev       # http://localhost:5173
+npm test          # 519 tests
+npm run build     # Build production
 ```
 
-## Ce qui est implémenté (IT-1)
+---
 
-### Moteur de cartes (src/core/deck.ts)
-- Deck complet 132 cartes : 4 jeux x 32 cartes + 4 jokers
-- Algorithme Fisher-Yates (aléatoire + déterministe avec graine LCG)
-- Identifiants uniques garantis par carte
-- Valeurs brisques : As=1, Dix=1, reste=0
-- Comptage brisques sur pile, statistiques complètes
+## 📋 Fonctionnalités
 
-### Types (src/types/index.ts)
-- Types Carte, Deck, Couleur, Rang, EtatCarte
-- Constantes ORDRE_RANGS, VALEURS_BRISQUES, NOM_COULEUR, SYMBOLE_COULEUR
+- 🃏 Bésigue complet — 132 cartes (4 jeux de 32 + 4 Jokers)
+- 🤖 IA 3 niveaux : Facile / Intermédiaire / Difficile
+- 🎴 14 combinaisons détectées automatiquement
+- ⚡ Phase finale avec obligations de couleur
+- 📊 Brisques, bonus dernier pli, victoire à 1 000 pts
+- ⭐ Charles Bézigue (victoire en bas de table)
+- 💾 Sauvegarde automatique + historique 20 parties
+- 🎓 Tutoriel interactif 8 étapes
 
-### Logger (src/utils/logger.ts)
-- Log JSON structuré persisté dans localStorage
-- Niveaux INFO / WARN / ERROR / DEBUG
+---
 
-### Composants UI
-- Carte.tsx : rendu SVG inline (face, dos, joker, figures, 6 états visuels)
-- DeckDisplay.tsx : affichage deck complet avec filtres par couleur
+## 🏗 Stack
 
-## Tests : 60 au total
-
-| Fichier | Tests |
-|---|---|
-| deck.test.ts | 42 |
-| types.test.ts | 12 |
-| deck.integration.test.ts | 6 |
-
-## Structure
-
-```
-src/
-  core/deck.ts
-  types/index.ts
-  utils/logger.ts
-  components/ui/Carte.tsx
-  components/ui/DeckDisplay.tsx
-  App.tsx
-tests/
-  unit/deck.test.ts
-  unit/types.test.ts
-  integration/deck.integration.test.ts
-  setup.ts
-```
+React 18 · TypeScript · Tailwind CSS 4 · Vite 6 · Vitest 2

@@ -203,9 +203,10 @@ export function useGameEngine(): UseGameEngineReturn {
     h: ActionJeu[],
     joueurActif: 0 | 1
   ) => {
-    // Fin de manche
-    if (mancheTerminee(s)) {
-      logger.info('ENGINE', 'Fin de manche — calcul brisques')
+    // Fin de manche : seuil atteint via annonces ou pioche/mains épuisées
+    const seuilAtteint = s.joueurs.some(j => j.marquePoints >= cfg.seuilVictoire)
+    if (seuilAtteint || mancheTerminee(s)) {
+      logger.info('ENGINE', seuilAtteint ? `Seuil ${cfg.seuilVictoire} pts atteint en cours de manche` : 'Fin de manche naturelle')
       const resultat = appliquerFinManche(s)
       setResultatManche(resultat)
       setState(resultat.state)
@@ -220,6 +221,20 @@ export function useGameEngine(): UseGameEngineReturn {
       setPhaseUI('attente_joueur')
       setMessageInfo('Votre tour — Jouez une carte')
     } else {
+      // Garde : si la main de l'IA est vide, la manche est terminée
+      // (cas phase finale, dernier pli joué — mancheTerminee() peut rater
+      // le timing selon l'état passé en paramètre)
+      if (s.joueurs[1].main.length === 0 && s.joueurs[0].main.length === 0) {
+        logger.info('ENGINE', 'Mains vides détectées avant tour IA — fin de manche forcée')
+        const resultat = appliquerFinManche(s)
+        setResultatManche(resultat)
+        setState(resultat.state)
+        if (cfg) sauvegarderEtat(cfg, resultat.state, h)
+        setPhaseUI('fin_manche')
+        setEcran('fin')
+        return
+      }
+
       setPhaseUI('attente_ia')
       setIaReflechit(true)
       setMessageInfo(`${s.joueurs[1].nom} réfléchit…`)
@@ -227,7 +242,18 @@ export function useGameEngine(): UseGameEngineReturn {
       const delai = delaiSimule(cfg.niveauIA)
       timerRef.current = setTimeout(() => {
         const carte = choisirCarteIA(s, cfg.niveauIA)
-        if (!carte) { setIaReflechit(false); return }
+        if (!carte) {
+          // Sécurité : si l'IA n'a plus de carte à jouer, forcer la fin de manche
+          logger.warn('ENGINE', 'IA sans carte jouable — fin de manche forcée')
+          setIaReflechit(false)
+          const resultat = appliquerFinManche(s)
+          setResultatManche(resultat)
+          setState(resultat.state)
+          if (cfg) sauvegarderEtat(cfg, resultat.state, h)
+          setPhaseUI('fin_manche')
+          setEcran('fin')
+          return
+        }
 
         logger.info('IA', `IA joue ${carte.rang}${carte.couleur}`)
         const { state: stateJoueIA, ok } = jouerCarte(s, 1, carte.id)
@@ -385,7 +411,7 @@ export function useGameEngine(): UseGameEngineReturn {
   const lancerNouvelleManche = useCallback(() => {
     if (!config || !resultatManche) return
     clearTimer()
-    const newState = initialiserNouvelleManche(resultatManche.state, config)
+    const newState = initialiserNouvelleManche(resultatManche.state, config, resultatManche.vainqueurManche)
     const h: ActionJeu[] = [{ type: 'DEBUT_MANCHE', mancheNumero: newState.mancheNumero }]
     setState(newState)
     setHistory(h)

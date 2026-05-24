@@ -76,6 +76,11 @@ export interface ResultatManche {
   charlesBezigue: boolean
   scoreFinJ0: number
   scoreFinJ1: number
+  // Compteur de manches après cette manche
+  compteurManches: [number, number]
+  // Victoire finale de la partie (4-0)
+  vainqueurPartie: 0 | 1 | null
+  centPoints: boolean              // victoire 4-0 en incluant un Charles Bézigue
 }
 
 export function appliquerFinManche(state: GameState): ResultatManche {
@@ -104,7 +109,7 @@ export function appliquerFinManche(state: GameState): ResultatManche {
 
   logger.info('FIN_MANCHE', `Scores finaux: J0=${scoreJ0ApresB}, J1=${scoreJ1ApresB}`)
 
-  // 4. Vérifier la victoire
+  // 4. Vérifier qui atteint 1000 pts (victoire de manche)
   const seuil = 1000
   const j0Gagne = scoreJ0ApresB >= seuil
   const j1Gagne = scoreJ1ApresB >= seuil
@@ -118,18 +123,52 @@ export function appliquerFinManche(state: GameState): ResultatManche {
     vainqueurManche = 1
   }
 
-  // 5. "En bas table" (adversaire < 750 quand gagnant ≥ 1000)
+  // 5. "En bas table" : adversaire < 750 quand le vainqueur atteint 1000
   let enBasTable = false
   if (vainqueurManche !== null) {
     const scorePerdant = vainqueurManche === 0 ? scoreJ1ApresB : scoreJ0ApresB
     enBasTable = scorePerdant < 750
   }
 
+  // Charles Bézigue de manche = victoire en bas de table
   const charlesBezigue = enBasTable
 
+  // 6. Mettre à jour le compteur de manches
+  //    Vainqueur de manche : +1 (ou +2 si en bas de table)
+  //    Adversaire : remis à 0
+  const compteurManches: [number, number] = [...(newState.compteurManches ?? [0, 0])] as [number, number]
+
   if (vainqueurManche !== null) {
+    const adversaire: 0 | 1 = vainqueurManche === 0 ? 1 : 0
+    const gain = enBasTable ? 2 : 1
+    compteurManches[vainqueurManche] = compteurManches[vainqueurManche] + gain
+    compteurManches[adversaire] = 0
+    logger.info('FIN_MANCHE', `Compteur manches → J0:${compteurManches[0]}, J1:${compteurManches[1]} (gain=${gain})`)
+  }
+
+  newState = { ...newState, compteurManches }
+
+  // 7. Vérifier la victoire de la partie (4 manches avec l'adversaire à 0)
+  const SEUIL_PARTIE = 4
+  let vainqueurPartie: 0 | 1 | null = null
+
+  if (compteurManches[0] >= SEUIL_PARTIE && compteurManches[1] === 0) {
+    vainqueurPartie = 0
+  } else if (compteurManches[1] >= SEUIL_PARTIE && compteurManches[0] === 0) {
+    vainqueurPartie = 1
+  }
+
+  // "Cent points" = victoire finale de la partie (4-0)
+  const centPoints = vainqueurPartie !== null
+
+  if (vainqueurPartie !== null) {
     newState = { ...newState, phase: 'terminee' }
-    logger.info('FIN_MANCHE', `Vainqueur: J${vainqueurManche}`, { enBasTable, charlesBezigue })
+    logger.info('FIN_MANCHE', `Victoire de partie → J${vainqueurPartie} (centPoints=${centPoints})`, {
+      enBasTable, charlesBezigue, compteurManches,
+    })
+  } else if (vainqueurManche !== null) {
+    // Manche gagnée mais pas encore la partie : on continue
+    logger.info('FIN_MANCHE', `Manche gagnée par J${vainqueurManche}, partie continue`, { compteurManches })
   }
 
   return {
@@ -141,6 +180,9 @@ export function appliquerFinManche(state: GameState): ResultatManche {
     charlesBezigue,
     scoreFinJ0: scoreJ0ApresB,
     scoreFinJ1: scoreJ1ApresB,
+    compteurManches,
+    vainqueurPartie,
+    centPoints,
   }
 }
 
@@ -170,18 +212,30 @@ export function mancheTerminee(state: GameState): boolean {
 
 export function initialiserNouvelleManche(
   state: GameState,
-  config: GameConfig
+  config: GameConfig,
+  vainqueurManche: 0 | 1 | null
 ): GameState {
   const { state: newState } = initialiserPartie(config)
 
-  // Conserver les scores et le numéro de manche
+  // Règle scores de jeu (marquePoints) :
+  //   - Manche avec vainqueur (≥ 1000 pts) → remise à 0 pour la nouvelle manche
+  //   - Manche sans vainqueur (< 1000 pts) → les scores accumulés sont conservés
+  const scoreJ0 = vainqueurManche !== null ? 0 : state.joueurs[0].marquePoints
+  const scoreJ1 = vainqueurManche !== null ? 0 : state.joueurs[1].marquePoints
+
   const joueursMaj = [...newState.joueurs] as typeof newState.joueurs
-  joueursMaj[0] = { ...joueursMaj[0], marquePoints: state.joueurs[0].marquePoints }
-  joueursMaj[1] = { ...joueursMaj[1], marquePoints: state.joueurs[1].marquePoints }
+  joueursMaj[0] = { ...joueursMaj[0], marquePoints: scoreJ0 }
+  joueursMaj[1] = { ...joueursMaj[1], marquePoints: scoreJ1 }
+
+  logger.info('INIT_MANCHE', `Nouvelle manche — scores: J0=${scoreJ0}, J1=${scoreJ1}`, {
+    vainqueurManche,
+    mancheNumero: state.mancheNumero + 1,
+  })
 
   return {
     ...newState,
     joueurs: joueursMaj,
     mancheNumero: state.mancheNumero + 1,
+    compteurManches: state.compteurManches,
   }
 }

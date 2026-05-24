@@ -142,6 +142,7 @@ export function initialiserPartie(config: GameConfig): {
     atoutDefini: false,
     premierBesiguePose: false,
     bonusDernierPli: null,
+    compteurManches: [0, 0],
     annonces: [],
     usagesCartes: [],
     mariagesAtoutActifs: { 0: [], 1: [] },
