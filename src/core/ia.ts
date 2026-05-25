@@ -44,7 +44,7 @@ export function choisirCarteIA(state: GameState, niveau: NiveauIA): Carte | null
   logger.debug('IA', `Niveau ${niveau}, ${candidats.length} candidats`)
 
   switch (niveau) {
-    case 'facile':        return iaFacile(candidats)
+    case 'facile':        return iaFacile(candidats, state)
     case 'intermediaire': return iaIntermediaire(candidats, state)
     case 'difficile':     return iaDifficile(candidats, state)
   }
@@ -79,7 +79,16 @@ export function choisirAnnonceIA(
 // FACILE — Aléatoire pur (SF-14.1)
 // ============================================================
 
-function iaFacile(candidats: Carte[]): Carte {
+function iaFacile(candidats: Carte[], state: GameState): Carte {
+  // Stratégie couper le 10 — tous niveaux
+  const carteOuverte = state.pliEnCours.carteJoueur0
+  if (carteOuverte) {
+    const coupe = strategieCouper10(candidats, carteOuverte, state)
+    if (coupe) {
+      logger.debug('IA', `Facile — Couper10 → ${coupe.rang}${coupe.couleur}`)
+      return coupe
+    }
+  }
   const idx = Math.floor(Math.random() * candidats.length)
   logger.debug('IA', `Facile → ${candidats[idx].rang}${candidats[idx].couleur}`)
   return candidats[idx]
@@ -92,6 +101,15 @@ function iaFacile(candidats: Carte[]): Carte {
 function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
   const carteOuverte = state.pliEnCours.carteJoueur0
   const couleurAtout = state.couleurAtout
+
+  // Stratégie couper le 10 — tous niveaux
+  if (carteOuverte) {
+    const coupe = strategieCouper10(candidats, carteOuverte, state)
+    if (coupe) {
+      logger.debug('IA', `Intermédiaire — Couper10 → ${coupe.rang}${coupe.couleur}`)
+      return coupe
+    }
+  }
 
   // Identifier les cartes utiles aux combis en main
   const cartesUtiles = cartesUtilesAuxCombis(state, 1)
@@ -135,6 +153,15 @@ function iaDifficile(candidats: Carte[], state: GameState): Carte {
   const couleurAtout = state.couleurAtout
   const ia = state.joueurs[1]
   const humain = state.joueurs[0]
+
+  // Stratégie couper le 10 — tous niveaux
+  if (carteOuverte) {
+    const coupe = strategieCouper10(candidats, carteOuverte, state)
+    if (coupe) {
+      logger.debug('IA', `Difficile — Couper10 → ${coupe.rang}${coupe.couleur}`)
+      return coupe
+    }
+  }
 
   // Cartes déjà jouées (comptage complet)
   const dejaJouees = new Set([
@@ -246,6 +273,106 @@ function choisirAnnonceStrategique(
     const pCombi = priorite[combi.nom] ?? combi.points
     return pCombi > pBest ? combi : best
   })
+}
+
+// ============================================================
+// STRATÉGIE "COUPER LE 10" — Tous niveaux (IT-6.2)
+// Appliquée quand le joueur humain joue un 10.
+//
+// Cas A — 10 NON-ATOUT :
+//   1. As de même couleur dans les étalées IA
+//   2. As de même couleur en main IA
+//   3. La plus faible carte d'atout qui bat le 10
+//   4. Fallback algorithme existant
+//
+// Cas B — 10 ATOUT :
+//   1. IA a plusieurs As d'atout → jouer un As d'atout
+//   2. IA n'a qu'un seul As d'atout ET pioche ≤ 2 → jouer cet As
+//   3. Fallback algorithme existant
+// ============================================================
+
+/**
+ * Si la carte ouverte est un 10, tente de trouver la meilleure
+ * réponse selon la stratégie "couper le 10".
+ * Retourne null si aucune règle ne s'applique (→ fallback).
+ */
+function strategieCouper10(
+  candidats: Carte[],
+  carteOuverte: Carte,
+  state: GameState
+): Carte | null {
+  if (carteOuverte.rang !== '10') return null
+
+  const couleurAtout = state.couleurAtout
+  const ia = state.joueurs[1]
+  const estAtout = couleurAtout !== null && carteOuverte.couleur === couleurAtout
+  const piocheRestante = state.pioche.length
+
+  // ── Cas B : 10 d'atout ──────────────────────────────────────
+  if (estAtout && couleurAtout) {
+    const asAtout = candidats.filter(
+      c => !c.estJoker && c.rang === 'A' && c.couleur === couleurAtout
+    )
+    if (asAtout.length > 1) {
+      // Plusieurs As d'atout → sacrifier le moins "rare" (le premier trouvé)
+      logger.debug('IA', `Couper10-atout: plusieurs As d'atout → jouer un As atout`)
+      return asAtout[0]
+    }
+    if (asAtout.length === 1 && piocheRestante <= 2) {
+      // Un seul As d'atout mais pioche quasi-vide → jouer cet As
+      logger.debug('IA', `Couper10-atout: As unique + pioche=${piocheRestante} → jouer As atout`)
+      return asAtout[0]
+    }
+    return null // Fallback
+  }
+
+  // ── Cas A : 10 NON-atout ────────────────────────────────────
+  const couleur10 = carteOuverte.couleur
+
+  // 1. As de même couleur dans les étalées
+  const asEtalees = ia.cartesEtalees.filter(
+    c => !c.estJoker && c.rang === 'A' && c.couleur === couleur10
+  )
+  if (asEtalees.length > 0) {
+    // Vérifier que cette carte est bien dans les candidats (jouable)
+    const asJouable = candidats.find(c => c.id === asEtalees[0].id)
+    if (asJouable) {
+      logger.debug('IA', `Couper10: As ${couleur10} depuis étalées → ${asJouable.id}`)
+      return asJouable
+    }
+  }
+
+  // 2. As de même couleur en main
+  const asMain = ia.main.filter(
+    c => !c.estJoker && c.rang === 'A' && c.couleur === couleur10
+  )
+  const asMainJouable = asMain.find(c => candidats.some(cand => cand.id === c.id))
+  if (asMainJouable) {
+    logger.debug('IA', `Couper10: As ${couleur10} depuis main → ${asMainJouable.id}`)
+    return asMainJouable
+  }
+
+  // 3. La plus faible carte d'atout qui bat réellement le 10 (si atout défini)
+  // On utilise resoudrePli pour être cohérent avec le moteur de jeu.
+  // Un atout bat toujours un non-atout, donc tous les atouts sont candidats.
+  // On prend néanmoins le plus faible pour économiser les atouts précieux.
+  if (couleurAtout) {
+    const atoutsGagnants = candidatsGagnants(
+      candidats.filter(c => !c.estJoker && c.couleur === couleurAtout),
+      carteOuverte,
+      couleurAtout,
+      1  // l'IA (J1) répond
+    )
+    if (atoutsGagnants.length > 0) {
+      const plusFaible = atoutsGagnants.reduce((min, c) =>
+        ORDRE_RANGS[c.rang] < ORDRE_RANGS[min.rang] ? c : min
+      )
+      logger.debug('IA', `Couper10: atout gagnant le plus faible → ${plusFaible.rang}${plusFaible.couleur}`)
+      return plusFaible
+    }
+  }
+
+  return null // Fallback algorithme existant
 }
 
 // ============================================================

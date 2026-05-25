@@ -98,7 +98,7 @@ export const EcranAccueil: React.FC<AccueilProps> = ({
           </div>
         )}
 
-        <p className="text-white/15 text-xs">IT-7 — Bésigue v0.7</p>
+        <p className="text-amber-400 text-sm font-semibold tracking-wide drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]">Jeu implémenté par Jacques ERASE</p>
       </div>
     </div>
   )
