@@ -48,7 +48,7 @@ export const EcranAccueil: React.FC<AccueilProps> = ({
           <h1 className="text-6xl font-bold text-amber-300 tracking-[0.15em]" style={{ fontFamily: 'Georgia, serif' }}>
             BÉSIGUE
           </h1>
-          <p className="mt-2 text-white/40 text-sm tracking-widest uppercase">Jeu de cartes français</p>
+          <p className="mt-2 text-white/40 text-sm tracking-widest uppercase">LA VERSION HAÏTIENNE DU JEU</p>
         </div>
 
         {/* Boutons */}
