@@ -227,9 +227,15 @@ export function initialiserNouvelleManche(
   joueursMaj[0] = { ...joueursMaj[0], marquePoints: scoreJ0 }
   joueursMaj[1] = { ...joueursMaj[1], marquePoints: scoreJ1 }
 
+  // Flag premier bésigue :
+  //   - Manche avec vainqueur (≥ 1000 pts) → remis à false (nouveau départ)
+  //   - Manche sans vainqueur (< 1000 pts) → conservé (le 1er bésigue reste posé)
+  const premierBesiguePose = vainqueurManche !== null ? false : state.premierBesiguePose
+
   logger.info('INIT_MANCHE', `Nouvelle manche — scores: J0=${scoreJ0}, J1=${scoreJ1}`, {
     vainqueurManche,
     mancheNumero: state.mancheNumero + 1,
+    premierBesiguePose,
   })
 
   return {
@@ -237,5 +243,6 @@ export function initialiserNouvelleManche(
     joueurs: joueursMaj,
     mancheNumero: state.mancheNumero + 1,
     compteurManches: state.compteurManches,
+    premierBesiguePose,
   }
 }

@@ -76,19 +76,72 @@ export function choisirAnnonceIA(
 }
 
 // ============================================================
-// FACILE — Aléatoire pur (SF-14.1)
+// FACILE — Aléatoire avec comportements humains débutants
 // ============================================================
+//
+// Trois comportements "d'erreur" réalistes s'ajoutent à l'aléatoire :
+//
+// 1. RATE couper le 10 : 1 chance sur 3 de ne pas appliquer la règle
+//    (PROBA_RATER_COUPER10 = 0.33)
+//
+// 2. JOUE l'atout trop tôt : 30% du temps en ouverture, si elle a
+//    de l'atout, elle le joue même sans raison stratégique
+//    (PROBA_ATOUT_PREMATURE = 0.30)
+//
+// 3. JOUE une brisque au hasard : 20% du temps en ouverture, elle
+//    joue une brisque (As ou 10) même quand c'est mauvais
+//    (PROBA_BRISQUE_IMPRUDENTE = 0.20)
+//
+// Ces comportements sont indépendants et s'appliquent dans l'ordre.
+// Si aucun ne se déclenche → tirage aléatoire pur (comportement original).
+
+export const PROBA_RATER_COUPER10    = 0.33
+export const PROBA_ATOUT_PREMATURE   = 0.30
+export const PROBA_BRISQUE_IMPRUDENTE = 0.20
 
 function iaFacile(candidats: Carte[], state: GameState): Carte {
-  // Stratégie couper le 10 — tous niveaux
   const carteOuverte = state.pliEnCours.carteJoueur0
-  if (carteOuverte) {
-    const coupe = strategieCouper10(candidats, carteOuverte, state)
-    if (coupe) {
-      logger.debug('IA', `Facile — Couper10 → ${coupe.rang}${coupe.couleur}`)
-      return coupe
+  const couleurAtout = state.couleurAtout
+
+  // ── Comportement 1 : Couper le 10 (avec risque de rater) ─────
+  if (carteOuverte && carteOuverte.rang === '10') {
+    const rate = Math.random() < PROBA_RATER_COUPER10
+    if (!rate) {
+      const coupe = strategieCouper10(candidats, carteOuverte, state)
+      if (coupe) {
+        logger.debug('IA', `Facile — Couper10 → ${coupe.rang}${coupe.couleur}`)
+        return coupe
+      }
+    } else {
+      logger.debug('IA', 'Facile — Couper10 RATÉ (comportement débutant)')
     }
   }
+
+  // Les comportements 2 et 3 ne s'appliquent qu'en ouverture (pas de carte ouverte)
+  if (!carteOuverte) {
+
+    // ── Comportement 2 : Jouer l'atout trop tôt ───────────────
+    if (couleurAtout && Math.random() < PROBA_ATOUT_PREMATURE) {
+      const atouts = candidats.filter(c => !c.estJoker && c.couleur === couleurAtout)
+      if (atouts.length > 0) {
+        const choix = atouts[Math.floor(Math.random() * atouts.length)]
+        logger.debug('IA', `Facile — Atout prématuré → ${choix.rang}${choix.couleur}`)
+        return choix
+      }
+    }
+
+    // ── Comportement 3 : Jouer une brisque imprudemment ────────
+    if (Math.random() < PROBA_BRISQUE_IMPRUDENTE) {
+      const brisques = candidats.filter(c => VALEURS_BRISQUES[c.rang] > 0)
+      if (brisques.length > 0) {
+        const choix = brisques[Math.floor(Math.random() * brisques.length)]
+        logger.debug('IA', `Facile — Brisque imprudente → ${choix.rang}${choix.couleur}`)
+        return choix
+      }
+    }
+  }
+
+  // ── Aléatoire pur (comportement original) ────────────────────
   const idx = Math.floor(Math.random() * candidats.length)
   logger.debug('IA', `Facile → ${candidats[idx].rang}${candidats[idx].couleur}`)
   return candidats[idx]
@@ -98,11 +151,17 @@ function iaFacile(candidats: Carte[], state: GameState): Carte {
 // INTERMÉDIAIRE — Heuristique améliorée (IT-6)
 // ============================================================
 
+// ── Seuils pioche pour niveau intermédiaire ──────────────────
+export const SEUIL_PIOCHE_GRANDE  = 8   // pioche > 8 → jouer safe
+export const SEUIL_PIOCHE_PETITE  = 4   // pioche ≤ 4 → jouer agressif
+
 function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
   const carteOuverte = state.pliEnCours.carteJoueur0
   const couleurAtout = state.couleurAtout
+  const piocheRestante = state.pioche.length
+  const humain = state.joueurs[0]
 
-  // Stratégie couper le 10 — tous niveaux
+  // ── Stratégie couper le 10 — tous niveaux ────────────────────
   if (carteOuverte) {
     const coupe = strategieCouper10(candidats, carteOuverte, state)
     if (coupe) {
@@ -111,20 +170,57 @@ function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
     }
   }
 
-  // Identifier les cartes utiles aux combis en main
+  // ── Évolution 1 : Couper l'As adverse avec atout ─────────────
+  // L'As est le rang le plus fort (rang 8). Aucune carte de même
+  // couleur ne peut le battre. Seul un atout peut capturer un As
+  // non-atout. Si le joueur pose un As d'atout → rien ne le bat.
+  if (carteOuverte && carteOuverte.rang === 'A' && couleurAtout) {
+    const estAsAtout = carteOuverte.couleur === couleurAtout
+    if (!estAsAtout) {
+      // As non-atout → chercher l'atout gagnant le plus faible
+      const atoutsGagnants = candidatsGagnants(
+        candidats.filter(c => !c.estJoker && c.couleur === couleurAtout),
+        carteOuverte,
+        couleurAtout,
+        1
+      )
+      if (atoutsGagnants.length > 0) {
+        const plusFaible = atoutsGagnants.reduce((min, c) =>
+          ORDRE_RANGS[c.rang] < ORDRE_RANGS[min.rang] ? c : min
+        )
+        logger.debug('IA', `Intermédiaire — Couper As non-atout → atout ${plusFaible.rang}${plusFaible.couleur}`)
+        return plusFaible
+      }
+    }
+    // As d'atout ou pas d'atout disponible → fallback
+  }
+
+  // ── Cartes utiles aux combis ──────────────────────────────────
   const cartesUtiles = cartesUtilesAuxCombis(state, 1)
 
+  // ── Bloc RÉPONSE (carteOuverte présente) ─────────────────────
   if (carteOuverte) {
     const brisqueDansPli = valeurBrisque(carteOuverte) > 0
 
     if (brisqueDansPli) {
-      // Gagner avec la carte la plus faible possible
+      // Évolution 2 : Pioche adaptative en mode agressif
+      // Si la pioche est petite (≤ 4), on essaie encore plus fort de gagner
+      // les brisques (même sacrifier une carte utile si nécessaire)
       const gagnants = candidatsGagnants(candidats, carteOuverte, couleurAtout, 1)
-      if (gagnants.length > 0) return carteAvecRangMinimal(gagnants)
+      if (gagnants.length > 0) {
+        if (piocheRestante <= SEUIL_PIOCHE_PETITE) {
+          // Mode agressif : gagner coûte que coûte
+          logger.debug('IA', `Intermédiaire — Agressif (pioche=${piocheRestante}) → gagner brisque`)
+          return carteAvecRangMinimal(gagnants)
+        }
+        // Mode normal : gagner avec carte minimale sans sacrifier utiles
+        const gagnantsNonUtiles = gagnants.filter(c => !cartesUtiles.has(c.id))
+        logger.debug('IA', `Intermédiaire — Gagner brisque (pioche=${piocheRestante})`)
+        return carteAvecRangMinimal(gagnantsNonUtiles.length > 0 ? gagnantsNonUtiles : gagnants)
+      }
     }
 
-    // Pli sans brisque → se défausser intelligemment
-    // Priorité : défausser non-brisque, non-utile, rang minimal
+    // Pli sans brisque (ou impossible à gagner) → défausse intelligente
     const defausse = candidats
       .filter(c => VALEURS_BRISQUES[c.rang] === 0 && !cartesUtiles.has(c.id))
     if (defausse.length > 0) return carteAvecRangMinimal(defausse)
@@ -133,7 +229,51 @@ function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
     return carteAvecRangMinimal(sansBrisques.length > 0 ? sansBrisques : candidats)
   }
 
-  // Ouverture : éviter brisques ET cartes utiles aux combis
+  // ── Bloc OUVERTURE (l'IA joue en premier) ────────────────────
+
+  // Évolution 3 : Jouer le 7 d'atout en ouverture si pioche grande
+  // → +10 pts automatiques, sans risque (pioche grande = pas encore en finale)
+  if (couleurAtout && piocheRestante > SEUIL_PIOCHE_GRANDE) {
+    const septAtout = candidats.find(
+      c => c.rang === '7' && c.couleur === couleurAtout && !c.estJoker
+    )
+    if (septAtout) {
+      logger.debug('IA', `Intermédiaire — Sept d'atout (+10 pts) → ${septAtout.rang}${septAtout.couleur}`)
+      return septAtout
+    }
+  }
+
+  // Évolution 4 : Bloquer les mariages adverses en mode agressif
+  // Si pioche petite et que l'humain a une carte étalée (demi-mariage),
+  // l'IA essaie de jouer la carte complémentaire pour le gêner
+  // (en jouant cette carte dans un pli, elle l'épuise de sa main)
+  if (piocheRestante <= SEUIL_PIOCHE_PETITE) {
+    const etaleesHumain = humain.cartesEtalees
+    for (const etale of etaleesHumain) {
+      if (etale.rang === 'Q') {
+        // L'humain a une Dame étalée → chercher le Roi de même couleur en main IA
+        const roi = candidats.find(
+          c => c.rang === 'K' && c.couleur === etale.couleur && !cartesUtiles.has(c.id)
+        )
+        if (roi) {
+          logger.debug('IA', `Intermédiaire — Bloquer mariage humain → jouer ${roi.rang}${roi.couleur}`)
+          return roi
+        }
+      }
+      if (etale.rang === 'K') {
+        // L'humain a un Roi étalé → chercher la Dame de même couleur en main IA
+        const dame = candidats.find(
+          c => c.rang === 'Q' && c.couleur === etale.couleur && !cartesUtiles.has(c.id)
+        )
+        if (dame) {
+          logger.debug('IA', `Intermédiaire — Bloquer mariage humain → jouer ${dame.rang}${dame.couleur}`)
+          return dame
+        }
+      }
+    }
+  }
+
+  // Ouverture normale : éviter brisques ET cartes utiles aux combis
   const sansValeur = candidats.filter(c =>
     VALEURS_BRISQUES[c.rang] === 0 && !cartesUtiles.has(c.id)
   )

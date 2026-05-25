@@ -498,3 +498,83 @@ describe('Seuil 1000 pts atteint en cours de manche (via annonces)', () => {
     expect(r.vainqueurManche).toBe(0)
   })
 })
+
+// ============================================================
+// 9. FLAG PREMIER BÉSIGUE — PERSISTENCE ENTRE LES MANCHES
+// Régression : premierBesiguePose doit être conservé quand la
+// manche continue sans vainqueur, et remis à false uniquement
+// quand une manche se termine par une victoire à 1000 pts.
+// ============================================================
+
+describe('Flag premierBesiguePose — persistence entre les manches', () => {
+
+  it('sans vainqueur : premierBesiguePose conservé à true', () => {
+    // Simuler une manche où le bésigue a déjà été posé
+    const state = makeEtatFinManche(400, 300, 8, 6, [0, 0])
+    const stateAvecBesigue = { ...state, premierBesiguePose: true }
+    const r = appliquerFinManche(stateAvecBesigue)
+    expect(r.vainqueurManche).toBeNull()
+
+    const newState = initialiserNouvelleManche(r.state, CONFIG_DEFAUT, r.vainqueurManche)
+    // Le flag doit être conservé → pas de 2e bésigue à 100 pts
+    expect(newState.premierBesiguePose).toBe(true)
+  })
+
+  it('sans vainqueur : premierBesiguePose conservé à false', () => {
+    // Manche sans bésigue posé
+    const state = makeEtatFinManche(400, 300, 8, 6, [0, 0])
+    const r = appliquerFinManche(state)
+    expect(r.vainqueurManche).toBeNull()
+
+    const newState = initialiserNouvelleManche(r.state, CONFIG_DEFAUT, r.vainqueurManche)
+    expect(newState.premierBesiguePose).toBe(false)
+  })
+
+  it('avec vainqueur : premierBesiguePose remis à false même si true', () => {
+    // Bésigue posé en manche 1, manche gagnée → la manche 2 repart à false
+    const state = makeEtatFinManche(800, 300, 20, 5, [0, 0])
+    const stateAvecBesigue = { ...state, premierBesiguePose: true }
+    const r = appliquerFinManche(stateAvecBesigue)
+    expect(r.vainqueurManche).toBe(0)
+
+    const newState = initialiserNouvelleManche(r.state, CONFIG_DEFAUT, r.vainqueurManche)
+    // Victoire → nouveau départ → bésigue à 100 pts de nouveau disponible
+    expect(newState.premierBesiguePose).toBe(false)
+  })
+
+  it('avec vainqueur : premierBesiguePose reste false', () => {
+    const state = makeEtatFinManche(800, 300, 20, 5, [0, 0])
+    const r = appliquerFinManche(state)
+    const newState = initialiserNouvelleManche(r.state, CONFIG_DEFAUT, r.vainqueurManche)
+    expect(newState.premierBesiguePose).toBe(false)
+  })
+
+  it('scénario complet : manche sans vainqueur, bésigue bloqué à 40 pts', () => {
+    // Manche 1 : bésigue posé (premierBesiguePose devient true)
+    const state1 = makeEtatFinManche(400, 300, 8, 6, [0, 0])
+    const stateB = { ...state1, premierBesiguePose: false }
+    const r1 = appliquerFinManche(stateB)
+    expect(r1.vainqueurManche).toBeNull()
+
+    // Nouvelle manche sans vainqueur → le flag est conservé
+    // On le simule à true (comme si le bésigue avait été posé pendant la manche)
+    const stateAvecFlag = { ...r1.state, premierBesiguePose: true }
+    const r1b = appliquerFinManche(stateAvecFlag)
+    const manche2 = initialiserNouvelleManche(r1b.state, CONFIG_DEFAUT, r1b.vainqueurManche)
+
+    // En manche 2, premierBesiguePose = true → le prochain bésigue vaut 40 pts
+    expect(manche2.premierBesiguePose).toBe(true)
+  })
+
+  it('scénario complet : victoire puis nouvelle manche, bésigue à 100 pts disponible', () => {
+    // Manche 1 : bésigue posé puis victoire à 1000 pts
+    const state1 = makeEtatFinManche(800, 300, 20, 5, [0, 0])
+    const stateB = { ...state1, premierBesiguePose: true }
+    const r1 = appliquerFinManche(stateB)
+    expect(r1.vainqueurManche).toBe(0)
+
+    const manche2 = initialiserNouvelleManche(r1.state, CONFIG_DEFAUT, r1.vainqueurManche)
+    // Victoire → reset → bésigue à 100 pts disponible en manche 2
+    expect(manche2.premierBesiguePose).toBe(false)
+  })
+})
