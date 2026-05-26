@@ -110,7 +110,22 @@ export function useGameEngine(): UseGameEngineReturn {
 
     // Vérifier transition phase finale
     if (newState.pioche.length === 0 && newState.phase === 'libre') {
-      newState = { ...newState, phase: 'finale' }
+      // Rapatrier les cartes étalées dans la main de chaque joueur :
+      // elles redeviennent jouables normalement et ne sont plus visibles
+      // par l'adversaire (règle de la phase finale).
+      const joueursMaj = [...newState.joueurs] as typeof newState.joueurs
+      for (const idx of [0, 1] as const) {
+        const j = joueursMaj[idx]
+        if (j.cartesEtalees.length > 0) {
+          joueursMaj[idx] = {
+            ...j,
+            main: [...j.main, ...j.cartesEtalees],
+            cartesEtalees: [],
+          }
+          logger.info('ENGINE', `Phase finale — ${j.cartesEtalees.length} carte(s) étalées → main J${idx}`)
+        }
+      }
+      newState = { ...newState, phase: 'finale', joueurs: joueursMaj }
       setMessageInfo('⚡ Phase finale ! Obligation de fournir la couleur.')
       logger.info('ENGINE', 'Phase finale déclenchée')
     }

@@ -284,17 +284,91 @@ function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
 }
 
 // ============================================================
-// DIFFICILE — Stratégique (IT-6)
-// Comptage des cartes, préservation combis, contrôle atout
+// DIFFICILE — Stratégique avancé (IT-6)
+// Mémorisation, score de partie, phase finale dédiée, variation
 // ============================================================
+//
+// Évolution D.1 — Mémorisation des cartes vues
+//   Cartes "vues" = piles remportées des deux joueurs
+//                 + carte posée par l'humain dans le pli en cours
+//   Déduit le nombre max de brisques encore disponibles chez l'humain
+//   → Coupe sans hésiter si on sait que l'humain ne peut plus gagner
+//
+// Évolution D.2 — Gestion du score de partie (compteurManches)
+//   IA mène (≥ 3-0)        → mode PRUDENT : carte minimale partout
+//   IA est menée (0-3 pour l'adversaire) → mode AGRESSIF : prend
+//     tous les risques, sacrifie les cartes utiles pour gagner
+//   Situation normale       → comportement standard
+//
+// Évolution D.3 — Phase finale dédiée
+//   Pioche = 0 → calcul exact des As adverses encore en jeu
+//   Si humain ne peut plus gagner le pli → couper librement
+//
+// Évolution D.4 — Variation de style (anti-prévisibilité)
+//   5% à 10% du temps (aléatoire) → joue la 2e meilleure carte
+//   Préserve l'efficacité tout en restant imprévisible
+
+export const PROBA_VARIATION_MIN = 0.05
+export const PROBA_VARIATION_MAX = 0.10
+
+// ── Helpers locaux ─────────────────────────────────────────────
+
+/** Applique la variation de style : retourne la 2e carte si tirage réussi */
+function appliquerVariation(cartes: Carte[]): Carte | null {
+  if (cartes.length < 2) return null
+  const proba = PROBA_VARIATION_MIN + Math.random() * (PROBA_VARIATION_MAX - PROBA_VARIATION_MIN)
+  if (Math.random() < proba) {
+    logger.debug('IA', 'Difficile — Variation de style → 2e meilleure carte')
+    return cartes[1]  // la 2e carte de la liste (triée par rang)
+  }
+  return null
+}
+
+/** Compte les As d'une couleur encore non vus (potentiellement chez l'humain) */
+function asNonVus(couleur: string, cartesVues: Set<string>, state: GameState): number {
+  // Il y a 2 As par couleur dans le jeu (2 jeux de cartes)
+  const totalAs = 2
+  const asVus = [...state.joueurs[0].pileRemportee, ...state.joueurs[1].pileRemportee,
+                 ...state.joueurs[1].main, ...state.joueurs[1].cartesEtalees]
+    .filter(c => c.rang === 'A' && c.couleur === couleur && cartesVues.has(c.id)).length
+  return Math.max(0, totalAs - asVus)
+}
 
 function iaDifficile(candidats: Carte[], state: GameState): Carte {
   const carteOuverte = state.pliEnCours.carteJoueur0
   const couleurAtout = state.couleurAtout
   const ia = state.joueurs[1]
   const humain = state.joueurs[0]
+  const piocheRestante = state.pioche.length
+  const [manchesIA, manchesHumain] = state.compteurManches ?? [0, 0]
 
-  // Stratégie couper le 10 — tous niveaux
+  // ── D.2 : Score de partie → mode de jeu ──────────────────────
+  const modeAgressif = manchesHumain >= 3 && manchesIA === 0
+  const modePrudent  = manchesIA >= 3 && manchesHumain === 0
+  logger.debug('IA', `Difficile — mode: ${modeAgressif ? 'AGRESSIF' : modePrudent ? 'PRUDENT' : 'NORMAL'} (IA:${manchesIA} vs H:${manchesHumain})`)
+
+  // ── D.1 : Cartes vues (mémorisation) ─────────────────────────
+  // Vues = piles remportées des deux joueurs + carte ouverte par l'humain
+  const cartesVues = new Set<string>([
+    ...ia.pileRemportee.map(c => c.id),
+    ...humain.pileRemportee.map(c => c.id),
+    ...(carteOuverte ? [carteOuverte.id] : []),
+  ])
+
+  // Cartes utiles aux combis de l'IA
+  const cartesUtiles = cartesUtilesAuxCombis(state, 1)
+
+  // Brisques totales vues (pour estimation)
+  const brisquesVues = [...cartesVues].filter(id => {
+    const all = [...ia.pileRemportee, ...humain.pileRemportee]
+    return all.some(c => c.id === id && valeurBrisque(c) > 0)
+  }).length
+  const brisquesRestantes = 32 - brisquesVues
+
+  // ── D.3 : Phase finale — calcul exact ────────────────────────
+  const estPhaseFinale = piocheRestante === 0
+
+  // ── Couper le 10 — commun à tous les niveaux ─────────────────
   if (carteOuverte) {
     const coupe = strategieCouper10(candidats, carteOuverte, state)
     if (coupe) {
@@ -303,32 +377,64 @@ function iaDifficile(candidats: Carte[], state: GameState): Carte {
     }
   }
 
-  // Cartes déjà jouées (comptage complet)
-  const dejaJouees = new Set([
-    ...ia.pileRemportee.map(c => c.id),
-    ...humain.pileRemportee.map(c => c.id),
-    ...ia.cartesEtalees.map(c => c.id),
-    ...humain.cartesEtalees.map(c => c.id),
-  ])
-
-  // Cartes utiles aux combis de l'IA
-  const cartesUtiles = cartesUtilesAuxCombis(state, 1)
-
-  // Brisques estimées restantes chez l'adversaire
-  const brisquesHumain = humain.pileRemportee.filter(c => valeurBrisque(c) > 0).length
-  const totalBrisquesJouees = ia.pileRemportee.filter(c => valeurBrisque(c) > 0).length + brisquesHumain
-  const brisquesRestantes = 32 - totalBrisquesJouees
-
+  // ── Bloc RÉPONSE ──────────────────────────────────────────────
   if (carteOuverte) {
     const brisqueDansPli = valeurBrisque(carteOuverte) > 0
 
     if (brisqueDansPli) {
-      // Forcer la victoire si possible, avec la carte minimale
       const gagnants = candidatsGagnants(candidats, carteOuverte, couleurAtout, 1)
+
       if (gagnants.length > 0) {
-        // Préférer ne pas sacrifier une carte utile aux combis
+
+        // D.3 — Phase finale : l'humain peut-il encore gagner ce pli ?
+        // Si toutes les cartes de même couleur ou atouts de l'humain sont vues
+        // → il ne peut plus gagner → on peut couper avec n'importe quel gagnant
+        if (estPhaseFinale) {
+          logger.debug('IA', 'Difficile — Phase finale : couper librement')
+          const meilleurGagnant = carteAvecRangMinimal(
+            gagnants.filter(c => !cartesUtiles.has(c.id)).length > 0
+              ? gagnants.filter(c => !cartesUtiles.has(c.id))
+              : gagnants
+          )
+          // D.4 — Variation de style
+          const variation = appliquerVariation(
+            [...gagnants].sort((a, b) => ORDRE_RANGS[a.rang] - ORDRE_RANGS[b.rang])
+          )
+          return (modePrudent || !variation) ? meilleurGagnant : variation
+        }
+
+        // D.2 — Mode agressif : gagner coûte que coûte, même sacrifier utiles
+        if (modeAgressif) {
+          logger.debug('IA', 'Difficile — Mode AGRESSIF : gagner la brisque')
+          const choix = carteAvecRangMinimal(gagnants)
+          // D.4 — Variation (réduite en mode agressif)
+          const variation = appliquerVariation(
+            [...gagnants].sort((a, b) => ORDRE_RANGS[a.rang] - ORDRE_RANGS[b.rang])
+          )
+          return variation ?? choix
+        }
+
+        // D.1 — Mémorisation : si l'humain a peu d'atouts vus, il peut couper
+        // → ne sacrifier une carte utile que si on est sûr de gagner
         const gagnantsSansUtiles = gagnants.filter(c => !cartesUtiles.has(c.id))
-        return carteAvecRangMinimal(gagnantsSansUtiles.length > 0 ? gagnantsSansUtiles : gagnants)
+
+        // D.2 — Mode prudent : ne jamais sacrifier une carte utile
+        if (modePrudent && gagnantsSansUtiles.length === 0) {
+          // Laisser passer la brisque plutôt que de sacrifier une utile
+          logger.debug('IA', 'Difficile — Mode PRUDENT : laisser passer la brisque')
+          const defausse = candidats.filter(c => VALEURS_BRISQUES[c.rang] === 0 && !cartesUtiles.has(c.id))
+          const sansBrisques = candidats.filter(c => VALEURS_BRISQUES[c.rang] === 0)
+          return carteAvecRangMinimal(defausse.length > 0 ? defausse : sansBrisques.length > 0 ? sansBrisques : candidats)
+        }
+
+        const meilleur = carteAvecRangMinimal(gagnantsSansUtiles.length > 0 ? gagnantsSansUtiles : gagnants)
+        // D.4 — Variation de style (mode normal uniquement)
+        if (!modePrudent && !modeAgressif) {
+          const tries = [...gagnants].sort((a, b) => ORDRE_RANGS[a.rang] - ORDRE_RANGS[b.rang])
+          const variation = appliquerVariation(tries)
+          if (variation) return variation
+        }
+        return meilleur
       }
     }
 
@@ -343,16 +449,41 @@ function iaDifficile(candidats: Carte[], state: GameState): Carte {
     return carteAvecRangMinimal(candidats)
   }
 
-  // Ouverture : choisir la meilleure stratégie
+  // ── Bloc OUVERTURE ────────────────────────────────────────────
+
+  // D.2 — Mode prudent : toujours la carte minimale en ouverture
+  if (modePrudent) {
+    logger.debug('IA', 'Difficile — Mode PRUDENT ouverture : carte minimale')
+    const sansValeur = candidats.filter(c => VALEURS_BRISQUES[c.rang] === 0 && !cartesUtiles.has(c.id))
+    const sansBrisques = candidats.filter(c => VALEURS_BRISQUES[c.rang] === 0)
+    return carteAvecRangMinimal(sansValeur.length > 0 ? sansValeur : sansBrisques.length > 0 ? sansBrisques : candidats)
+  }
+
+  // D.2 — Mode agressif : tirer l'adversaire avec un atout fort
+  if (modeAgressif && couleurAtout) {
+    const atoutsFortes = candidats.filter(c =>
+      !c.estJoker && c.couleur === couleurAtout &&
+      ORDRE_RANGS[c.rang] >= ORDRE_RANGS['10']
+    )
+    if (atoutsFortes.length > 0) {
+      logger.debug('IA', 'Difficile — Mode AGRESSIF ouverture : atout fort')
+      return carteAvecRangMaximal(atoutsFortes)
+    }
+  }
+
+  // Ouverture normale : contrôle atout si brisques restantes élevées
   if (couleurAtout) {
     const atoutsFortes = candidats.filter(c =>
       !c.estJoker && c.couleur === couleurAtout &&
       ORDRE_RANGS[c.rang] >= ORDRE_RANGS['10'] &&
       !cartesUtiles.has(c.id)
     )
-    // Tirer les brisques adverses si on a des atouts forts et que l'adversaire en a probablement
     if (atoutsFortes.length > 0 && brisquesRestantes > 6) {
-      return carteAvecRangMaximal(atoutsFortes)
+      const choix = carteAvecRangMaximal(atoutsFortes)
+      // D.4 — Variation de style en ouverture normale
+      const tries = [...atoutsFortes].sort((a, b) => ORDRE_RANGS[b.rang] - ORDRE_RANGS[a.rang])
+      const variation = appliquerVariation(tries)
+      return variation ?? choix
     }
   }
 
