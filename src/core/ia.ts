@@ -141,6 +141,20 @@ function iaFacile(candidats: Carte[], state: GameState): Carte {
     }
   }
 
+  // ── Étalées en réponse (tous niveaux) ───────────────────────
+  const etaleesRep = strategieEtaleesEnReponse(candidats, state)
+  if (etaleesRep) {
+    logger.debug('IA', `Facile — Étalées-réponse → ${etaleesRep.rang}${etaleesRep.couleur}`)
+    return etaleesRep
+  }
+
+  // ── Stratégie pré-atout (tous niveaux) ──────────────────────
+  const preAtout = strategieOuverturePreAtout(candidats, state)
+  if (preAtout) {
+    logger.debug('IA', `Facile — Pré-atout → ${preAtout.rang}${preAtout.couleur}`)
+    return preAtout
+  }
+
   // ── Aléatoire pur (comportement original) ────────────────────
   const idx = Math.floor(Math.random() * candidats.length)
   logger.debug('IA', `Facile → ${candidats[idx].rang}${candidats[idx].couleur}`)
@@ -193,6 +207,20 @@ function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
       }
     }
     // As d'atout ou pas d'atout disponible → fallback
+  }
+
+  // ── Étalées en réponse (tous niveaux) ───────────────────────
+  const etaleesRep = strategieEtaleesEnReponse(candidats, state)
+  if (etaleesRep) {
+    logger.debug('IA', `Intermédiaire — Étalées-réponse → ${etaleesRep.rang}${etaleesRep.couleur}`)
+    return etaleesRep
+  }
+
+  // ── Stratégie pré-atout (tous niveaux) ──────────────────────
+  const preAtout = strategieOuverturePreAtout(candidats, state)
+  if (preAtout) {
+    logger.debug('IA', `Intermédiaire — Pré-atout → ${preAtout.rang}${preAtout.couleur}`)
+    return preAtout
   }
 
   // ── Cartes utiles aux combis ──────────────────────────────────
@@ -346,6 +374,20 @@ function iaDifficile(candidats: Carte[], state: GameState): Carte {
   const modeAgressif = manchesHumain >= 3 && manchesIA === 0
   const modePrudent  = manchesIA >= 3 && manchesHumain === 0
   logger.debug('IA', `Difficile — mode: ${modeAgressif ? 'AGRESSIF' : modePrudent ? 'PRUDENT' : 'NORMAL'} (IA:${manchesIA} vs H:${manchesHumain})`)
+
+  // ── Étalées en réponse (tous niveaux) ───────────────────────
+  const etaleesRep = strategieEtaleesEnReponse(candidats, state)
+  if (etaleesRep) {
+    logger.debug('IA', `Difficile — Étalées-réponse → ${etaleesRep.rang}${etaleesRep.couleur}`)
+    return etaleesRep
+  }
+
+  // ── Stratégie pré-atout (tous niveaux) ──────────────────────
+  const preAtout = strategieOuverturePreAtout(candidats, state)
+  if (preAtout) {
+    logger.debug('IA', `Difficile — Pré-atout → ${preAtout.rang}${preAtout.couleur}`)
+    return preAtout
+  }
 
   // ── D.1 : Cartes vues (mémorisation) ─────────────────────────
   // Vues = piles remportées des deux joueurs + carte ouverte par l'humain
@@ -561,6 +603,168 @@ function choisirAnnonceStrategique(
 //   2. IA n'a qu'un seul As d'atout ET pioche ≤ 2 → jouer cet As
 //   3. Fallback algorithme existant
 // ============================================================
+
+// ============================================================
+// STRATÉGIE OUVERTURE PRÉ-ATOUT — Tous niveaux
+// ============================================================
+//
+// S'applique UNIQUEMENT en ouverture (l'IA joue en premier)
+// et UNIQUEMENT quand l'atout n'est pas encore défini.
+//
+// Même après définition de l'atout, l'IA évite de gaspiller
+// ses cartes d'atout — elle les préserve jusqu'à la fin.
+//
+// Priorités quand atout non défini :
+//   1. Cartes de rang faible : 9, 8, 7 (non-brisques, peu utiles)
+//   2. Cartes en double (même rang, 2+ exemplaires en main)
+//      → sacrifier un des doublons plutôt qu'une carte unique utile
+//   3. Fallback → algorithme de niveau habituel
+//
+// Quand atout défini :
+//   → éviter les cartes d'atout en ouverture (les préserver)
+//   → laisser le niveau gérer normalement
+/**
+ * Stratégie d'ouverture pré-atout et préservation des atouts.
+ * Retourne null si la règle ne s'applique pas (→ fallback).
+ */
+// ============================================================
+// STRATÉGIE ÉTALÉES EN RÉPONSE — Tous niveaux
+// ============================================================
+//
+// En réponse à une carte adverse non-atout, l'IA privilégie
+// de jouer ses cartes ÉTALÉES (non-atout) plutôt que ses cartes
+// en main — si elles gagnent le pli.
+//
+// Priorités dans les étalées :
+//   1. As étalé non-atout de même couleur que la carte ouverte
+//      → capture une brisque adverse / récupère la sienne
+//   2. Toute autre carte étalée non-atout gagnante (rang minimal)
+//
+// Les cartes d'atout étalées sont TOUJOURS protégées.
+// Ne s'applique qu'en réponse (carteOuverte présente).
+/**
+ * En réponse, préférer jouer une carte étalée non-atout gagnante
+ * plutôt qu'une carte en main.
+ * Retourne null si aucune carte étalée applicable.
+ */
+function strategieEtaleesEnReponse(
+  candidats: Carte[],
+  state: GameState
+): Carte | null {
+  const carteOuverte = state.pliEnCours.carteJoueur0
+  const couleurAtout = state.couleurAtout
+
+  // Ne s'applique qu'en réponse
+  if (!carteOuverte) return null
+
+  // Ne s'applique pas si la carte ouverte est un atout
+  // (dans ce cas, les règles normales de coupe s'appliquent)
+  if (couleurAtout && carteOuverte.couleur === couleurAtout) return null
+
+  const etaleesIA = state.joueurs[1].cartesEtalees
+
+  // Cartes étalées non-atout présentes dans les candidats jouables
+  const etaleesDisponibles = etaleesIA.filter(e =>
+    !e.estJoker &&
+    (!couleurAtout || e.couleur !== couleurAtout) &&
+    candidats.some(cand => cand.id === e.id)
+  )
+
+  if (etaleesDisponibles.length === 0) return null
+
+  // Calculer quelles étalées gagnent le pli
+  const etaleesGagnantes = candidatsGagnants(etaleesDisponibles, carteOuverte, couleurAtout, 1)
+
+  if (etaleesGagnantes.length === 0) return null
+
+  // Priorité 1 : As étalé non-atout de même couleur que la carte ouverte
+  // → brisque capturée ou défendue
+  const asMemeCouleur = etaleesGagnantes.filter(
+    c => c.rang === 'A' && c.couleur === carteOuverte.couleur
+  )
+  if (asMemeCouleur.length > 0) {
+    const choix = asMemeCouleur[0]
+    logger.debug('IA', `Étalées-réponse — As étalé même couleur → ${choix.rang}${choix.couleur}`)
+    return choix
+  }
+
+  // Priorité 2 : toute autre carte étalée gagnante, rang minimal
+  const choix = carteAvecRangMinimal(etaleesGagnantes)
+  logger.debug('IA', `Étalées-réponse — étalée gagnante → ${choix.rang}${choix.couleur}`)
+  return choix
+}
+
+function strategieOuverturePreAtout(
+  candidats: Carte[],
+  state: GameState
+): Carte | null {
+  const carteOuverte = state.pliEnCours.carteJoueur0
+  const couleurAtout = state.couleurAtout
+
+  // Ne s'applique qu'en ouverture (pas de carte posée par l'adversaire)
+  if (carteOuverte !== null) return null
+
+  // ── Cas A : atout non défini → stratégie pré-atout ───────────
+  if (couleurAtout === null) {
+    // Priorité 1 : rangs faibles non-brisques (9, 8, 7)
+    const RANGS_FAIBLES: Carte['rang'][] = ['9', '8', '7']
+    const cartesFaibles = candidats.filter(
+      c => !c.estJoker && RANGS_FAIBLES.includes(c.rang)
+    )
+    if (cartesFaibles.length > 0) {
+      const choix = carteAvecRangMinimal(cartesFaibles)
+      logger.debug('IA', `Pré-atout — carte faible → ${choix.rang}${choix.couleur}`)
+      return choix
+    }
+
+    // Priorité 2 : cartes en double (même rang présent 2+ fois en main)
+    // → sacrifier un doublon plutôt qu'une carte unique potentiellement utile
+    const rangsEnMain: Record<string, Carte[]> = {}
+    for (const carte of candidats) {
+      if (!carte.estJoker) {
+        const key = carte.rang
+        if (!rangsEnMain[key]) rangsEnMain[key] = []
+        rangsEnMain[key].push(carte)
+      }
+    }
+    const doublons = Object.values(rangsEnMain)
+      .filter(groupe => groupe.length >= 2)
+      .flat()
+    if (doublons.length > 0) {
+      // Parmi les doublons, jouer celui avec le rang le plus faible
+      const choix = carteAvecRangMinimal(doublons)
+      logger.debug('IA', `Pré-atout — doublon → ${choix.rang}${choix.couleur}`)
+      return choix
+    }
+
+    // Priorité 3 : éviter les Dames et Rois UNIQUES (potentiel mariage atout)
+    // Un doublon de Dame/Roi peut être sacrifié (priorité 2 déjà passée).
+    // Ici on exclut seulement les exemplaires uniques.
+    const RANGS_MARIAGE: Carte['rang'][] = ['Q', 'K']
+    const rangsDupliques = new Set(
+      Object.entries(rangsEnMain)
+        .filter(([, groupe]) => groupe.length >= 2)
+        .map(([rang]) => rang)
+    )
+    const sansMariageUniques = candidats.filter(
+      c => !c.estJoker && !(RANGS_MARIAGE.includes(c.rang) && !rangsDupliques.has(c.rang))
+    )
+    if (sansMariageUniques.length > 0) {
+      const choix = carteAvecRangMinimal(sansMariageUniques)
+      logger.debug('IA', `Pré-atout — éviter Dame/Roi unique → ${choix.rang}${choix.couleur}`)
+      return choix
+    }
+
+    // Aucune alternative → fallback complet (laisser le niveau décider)
+    return null
+  }
+
+  // ── Cas B : atout défini → préserver les cartes d'atout ──────
+  // Retourner null ici : chaque niveau gère déjà l'évitement des atouts
+  // via sa logique d'ouverture normale (non-brisque, non-utile, minimal).
+  // Aucune intervention nécessaire.
+  return null
+}
 
 /**
  * Si la carte ouverte est un 10, tente de trouver la meilleure
