@@ -473,6 +473,61 @@ export const EcranTable: React.FC<TableJeuProps> = ({
 
 // ── Zone centrale ──────────────────────────────────────────────
 
+const PIOCHE_MAX = 114
+
+const JaugePioche: React.FC<{ nbCartes: number }> = ({ nbCartes }) => {
+  const pct = Math.max(0, Math.min(1, nbCartes / PIOCHE_MAX))
+  const hue = Math.round(pct * 120)
+  const couleurJauge = `hsl(${hue}, 70%, 45%)`
+  const couleurTexte = `hsl(${hue}, 80%, 65%)`
+  const couleurGlow  = `hsl(${hue}, 70%, 40%)`
+  const estVide = nbCartes === 0
+  const layers = Math.min(4, Math.ceil(nbCartes / 30))
+
+  return (
+    <div className="flex flex-col items-center gap-1.5 w-full">
+      {estVide ? (
+        <div className="w-14 h-16 rounded-lg border-2 border-dashed border-white/12 flex items-center justify-center">
+          <span className="text-white/20 text-[10px]">Vide</span>
+        </div>
+      ) : (
+        <div className="relative w-14 h-16">
+          {Array.from({ length: layers }).map((_, i) => (
+            <div key={i} className="absolute rounded-lg bg-[#1e3a6b] border border-[#2d5aa0]"
+              style={{ width: 56, height: 62, top: -(i * 1.5), left: i, zIndex: i }} />
+          ))}
+          <div className="absolute inset-0 rounded-lg bg-[#1e3a6b] border border-[#4a7fd4] z-10 flex items-center justify-center">
+            <span className="text-[#4a7fd4] text-lg opacity-50">♦</span>
+          </div>
+        </div>
+      )}
+      <div className="w-full flex flex-col items-center gap-0.5">
+        <div
+          className="w-full h-3 rounded-full overflow-hidden"
+          style={{ background: 'rgba(255,255,255,0.08)' }}
+          title={`${nbCartes} / ${PIOCHE_MAX} cartes`}
+        >
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{
+              width: `${pct * 100}%`,
+              background: couleurJauge,
+              boxShadow: pct > 0 ? `0 0 6px ${couleurGlow}` : 'none',
+            }}
+          />
+        </div>
+        <span
+          className="text-xs font-bold tabular-nums"
+          style={{ color: estVide ? 'rgba(255,255,255,0.25)' : couleurTexte }}
+        >
+          {nbCartes}
+          <span className="text-[9px] font-normal opacity-60 ml-0.5">/ {PIOCHE_MAX}</span>
+        </span>
+      </div>
+    </div>
+  )
+}
+
 const ZoneCentrale: React.FC<{
   state: GameState
   dernierPliVainqueur: (0 | 1) | null
@@ -486,9 +541,8 @@ const ZoneCentrale: React.FC<{
     <div className="flex items-center justify-center gap-6 py-3 px-4 flex-shrink-0">
       <SlotCarte label="Vous" carte={c0} estVainqueur={dernierPliVainqueur === 0} />
 
-      <div className="flex flex-col items-center gap-1.5 min-w-20">
-        <PiocheVisuel nbCartes={nbCartesRestantes} />
-        <span className="text-[10px] text-white/30 font-mono">{nbCartesRestantes}</span>
+      <div className="flex flex-col items-center gap-1.5 min-w-24">
+        <JaugePioche nbCartes={nbCartesRestantes} />
         {couleurAtout ? (
           <div className="text-center leading-tight">
             <span className="text-[9px] text-white/20 block uppercase tracking-wider">Atout</span>
