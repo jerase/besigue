@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { sauvegardeExiste, horodatage, chargerHistorique, effacerHistorique } from '../utils/persistence'
+import { sauvegardeExiste, horodatage, chargerHistorique, effacerHistorique, supprimerSauvegarde } from '../utils/persistence'
 import type { EntreeHistorique } from '../utils/persistence'
 
 interface AccueilProps {
@@ -12,10 +12,12 @@ interface AccueilProps {
 export const EcranAccueil: React.FC<AccueilProps> = ({
   onNouvellePartie, onReprendrePartie, onRegles, onTutoriel,
 }) => {
-  const [hasSave, setHasSave]     = useState(false)
-  const [saveDate, setSaveDate]   = useState<string | null>(null)
-  const [historique, setHistorique] = useState<EntreeHistorique[]>([])
-  const [showHisto, setShowHisto] = useState(false)
+  const [hasSave, setHasSave]           = useState(false)
+  const [saveDate, setSaveDate]         = useState<string | null>(null)
+  const [historique, setHistorique]     = useState<EntreeHistorique[]>([])
+  const [showHisto, setShowHisto]       = useState(false)
+  const [confirmSave, setConfirmSave]   = useState(false)
+  const [confirmHisto, setConfirmHisto] = useState(false)
 
   useEffect(() => {
     setHasSave(sauvegardeExiste())
@@ -23,7 +25,8 @@ export const EcranAccueil: React.FC<AccueilProps> = ({
     setHistorique(chargerHistorique())
   }, [])
 
-  const handleEffacerHisto = () => { effacerHistorique(); setHistorique([]) }
+  const handleEffacerHisto = () => { effacerHistorique(); setHistorique([]); setConfirmHisto(false) }
+  const handleSupprimerSave = () => { supprimerSauvegarde(); setHasSave(false); setSaveDate(null); setConfirmSave(false) }
 
   return (
     <div className="min-h-screen bg-[#0a1628] flex flex-col items-center justify-center px-4 relative overflow-hidden">
@@ -55,13 +58,46 @@ export const EcranAccueil: React.FC<AccueilProps> = ({
         <div className="flex flex-col gap-3 w-full">
           <Btn onClick={onNouvellePartie} icone="🃏" label="Nouvelle partie" variante="principal" />
           {hasSave && (
-            <Btn
-              onClick={onReprendrePartie}
-              icone="↩"
-              label="Reprendre la partie"
-              variante="secondaire"
-              badge={saveDate ? `Sauvegardé le ${saveDate}` : 'Sauvegarde disponible'}
-            />
+            <div className="flex flex-col gap-1.5">
+              <div className="flex gap-2 items-stretch">
+                <Btn
+                  onClick={onReprendrePartie}
+                  icone="↩"
+                  label="Reprendre la partie"
+                  variante="secondaire"
+                  badge={saveDate ? `Sauvegardé le ${saveDate}` : 'Sauvegarde disponible'}
+                  className="flex-1"
+                />
+                <button
+                  onClick={() => setConfirmSave(v => !v)}
+                  title="Supprimer la sauvegarde"
+                  className={`px-3 rounded-xl border transition-all cursor-pointer text-sm ${
+                    confirmSave
+                      ? 'bg-red-500/20 border-red-500/50 text-red-400'
+                      : 'bg-white/5 border-white/15 text-white/40 hover:text-red-400 hover:border-red-400/40 hover:bg-red-500/10'
+                  }`}
+                >
+                  🗑
+                </button>
+              </div>
+              {confirmSave && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-xl">
+                  <span className="text-xs text-red-300 flex-1">Supprimer cette sauvegarde ?</span>
+                  <button
+                    onClick={handleSupprimerSave}
+                    className="text-xs font-bold text-red-400 hover:text-red-300 cursor-pointer px-2 py-1 bg-red-500/20 rounded-lg transition-colors"
+                  >
+                    Oui, supprimer
+                  </button>
+                  <button
+                    onClick={() => setConfirmSave(false)}
+                    className="text-xs text-white/40 hover:text-white/70 cursor-pointer px-2 py-1 rounded-lg transition-colors"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <div className="flex gap-2">
             <Btn onClick={onRegles} icone="📖" label="Règles" variante="ghost" className="flex-1" />
@@ -82,7 +118,15 @@ export const EcranAccueil: React.FC<AccueilProps> = ({
           <div className="w-full bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
               <h2 className="text-sm font-bold text-white/50 uppercase tracking-widest">Parties récentes</h2>
-              <button onClick={handleEffacerHisto} className="text-xs text-red-400/60 hover:text-red-400 cursor-pointer">Effacer</button>
+              {confirmHisto ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-red-300">Confirmer ?</span>
+                  <button onClick={handleEffacerHisto} className="text-xs font-bold text-red-400 hover:text-red-300 cursor-pointer">Oui</button>
+                  <button onClick={() => setConfirmHisto(false)} className="text-xs text-white/40 hover:text-white/70 cursor-pointer">Non</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmHisto(true)} className="text-xs text-red-400/60 hover:text-red-400 cursor-pointer">Effacer tout</button>
+              )}
             </div>
             <div className="divide-y divide-white/5 max-h-60 overflow-y-auto">
               {historique.map((h, i) => <HistoRow key={i} h={h} />)}

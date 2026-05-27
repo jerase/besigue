@@ -141,6 +141,13 @@ function iaFacile(candidats: Carte[], state: GameState): Carte {
     }
   }
 
+  // ── Garder les atouts (tous niveaux) ────────────────────────
+  const garderAtout = strategieGarderAtouts(candidats, state)
+  if (garderAtout) {
+    logger.debug('IA', `Facile — GarderAtouts → ${garderAtout.rang}${garderAtout.couleur}`)
+    return garderAtout
+  }
+
   // ── Étalées en réponse (tous niveaux) ───────────────────────
   const etaleesRep = strategieEtaleesEnReponse(candidats, state)
   if (etaleesRep) {
@@ -207,6 +214,13 @@ function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
       }
     }
     // As d'atout ou pas d'atout disponible → fallback
+  }
+
+  // ── Garder les atouts (tous niveaux) ────────────────────────
+  const garderAtout = strategieGarderAtouts(candidats, state)
+  if (garderAtout) {
+    logger.debug('IA', `Intermédiaire — GarderAtouts → ${garderAtout.rang}${garderAtout.couleur}`)
+    return garderAtout
   }
 
   // ── Étalées en réponse (tous niveaux) ───────────────────────
@@ -374,6 +388,13 @@ function iaDifficile(candidats: Carte[], state: GameState): Carte {
   const modeAgressif = manchesHumain >= 3 && manchesIA === 0
   const modePrudent  = manchesIA >= 3 && manchesHumain === 0
   logger.debug('IA', `Difficile — mode: ${modeAgressif ? 'AGRESSIF' : modePrudent ? 'PRUDENT' : 'NORMAL'} (IA:${manchesIA} vs H:${manchesHumain})`)
+
+  // ── Garder les atouts (tous niveaux) ────────────────────────
+  const garderAtout = strategieGarderAtouts(candidats, state)
+  if (garderAtout) {
+    logger.debug('IA', `Difficile — GarderAtouts → ${garderAtout.rang}${garderAtout.couleur}`)
+    return garderAtout
+  }
 
   // ── Étalées en réponse (tous niveaux) ───────────────────────
   const etaleesRep = strategieEtaleesEnReponse(candidats, state)
@@ -627,6 +648,87 @@ function choisirAnnonceStrategique(
  * Stratégie d'ouverture pré-atout et préservation des atouts.
  * Retourne null si la règle ne s'applique pas (→ fallback).
  */
+// ============================================================
+// STRATÉGIE GARDER LES ATOUTS — Tous niveaux
+// ============================================================
+//
+// Objectif : conserver 4-5 cartes d'atout en main pour la phase
+// finale, où elles seront décisives.
+//
+// Deux modes selon la taille de la pioche :
+//
+// Mode NORMAL (atout défini, pioche > SEUIL_GARDER_ATOUTS) :
+//   - Ouverture : éviter les atouts, jouer autre chose
+//   - Réponse   : n'utiliser un atout QUE pour :
+//       a) capturer une brisque adverse (As ou 10)
+//       b) gagner un pli important (adversaire joue As ou 10)
+//     → si aucun de ces cas, ne pas jouer d'atout
+//
+// Mode NETTOYAGE (pioche ≤ SEUIL_GARDER_ATOUTS = 50) :
+//   - Même règle renforcée : atout uniquement pour brisque/pli important
+//   - En ouverture : jouer toujours autre chose si possible
+//
+// Les cartes d'atout sont TOUJOURS jouables via les règles
+// prioritaires (couper10, couper-As, étalées).
+// Cette stratégie s'applique APRÈS ces règles.
+
+export const SEUIL_GARDER_ATOUTS = 50  // pioche ≤ 50 → mode nettoyage
+
+/**
+ * Stratégie de préservation des atouts.
+ * Retourne la carte à jouer (sans atout si possible),
+ * ou null si aucune restriction ne s'applique (→ fallback niveau).
+ */
+function strategieGarderAtouts(
+  candidats: Carte[],
+  state: GameState
+): Carte | null {
+  const couleurAtout = state.couleurAtout
+  if (!couleurAtout) return null  // atout non défini → inapplicable
+
+  const carteOuverte = state.pliEnCours.carteJoueur0
+  const piocheRestante = state.pioche.length
+
+  // ── Mode RÉPONSE ──────────────────────────────────────────────
+  if (carteOuverte) {
+    // Cas autorisé : la carte adverse est une brisque (As ou 10) ou un pli important
+    const estBrisqueOuImportant =
+      carteOuverte.rang === 'A' || carteOuverte.rang === '10'
+
+    if (estBrisqueOuImportant) {
+      // L'IA PEUT jouer un atout — laisser le fallback décider
+      return null
+    }
+
+    // Carte adverse ordinaire → ne pas gaspiller un atout
+    // Chercher une carte non-atout parmi les candidats
+    const sansAtout = candidats.filter(
+      c => !c.estJoker && c.couleur !== couleurAtout
+    )
+    if (sansAtout.length > 0) {
+      const choix = carteAvecRangMinimal(sansAtout)
+      logger.debug('IA', `GarderAtouts-réponse — non-atout → ${choix.rang}${choix.couleur}`)
+      return choix
+    }
+    // Que des atouts disponibles → obligation de jouer atout, fallback
+    return null
+  }
+
+  // ── Mode OUVERTURE ────────────────────────────────────────────
+  // Toujours éviter les atouts en ouverture si possible
+  const sansAtout = candidats.filter(
+    c => !c.estJoker && c.couleur !== couleurAtout
+  )
+  if (sansAtout.length > 0) {
+    const choix = carteAvecRangMinimal(sansAtout)
+    logger.debug('IA', `GarderAtouts-ouverture (pioche=${piocheRestante}) — non-atout → ${choix.rang}${choix.couleur}`)
+    return choix
+  }
+
+  // Que des atouts en main → obligation de jouer atout, fallback
+  return null
+}
+
 // ============================================================
 // STRATÉGIE ÉTALÉES EN RÉPONSE — Tous niveaux
 // ============================================================
