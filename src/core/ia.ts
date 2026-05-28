@@ -141,6 +141,13 @@ function iaFacile(candidats: Carte[], state: GameState): Carte {
     }
   }
 
+  // ── As étalés ou éviter le pli (tous niveaux) ──────────────
+  const asEtalees = strategieAsEtaleesOuEviter(candidats, state)
+  if (asEtalees) {
+    logger.debug('IA', `Facile — AsÉtalés → ${asEtalees.rang}${asEtalees.couleur}`)
+    return asEtalees
+  }
+
   // ── Garder les atouts (tous niveaux) ────────────────────────
   const garderAtout = strategieGarderAtouts(candidats, state)
   if (garderAtout) {
@@ -214,6 +221,13 @@ function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
       }
     }
     // As d'atout ou pas d'atout disponible → fallback
+  }
+
+  // ── As étalés ou éviter le pli (tous niveaux) ──────────────
+  const asEtalees = strategieAsEtaleesOuEviter(candidats, state)
+  if (asEtalees) {
+    logger.debug('IA', `Intermédiaire — AsÉtalés → ${asEtalees.rang}${asEtalees.couleur}`)
+    return asEtalees
   }
 
   // ── Garder les atouts (tous niveaux) ────────────────────────
@@ -388,6 +402,13 @@ function iaDifficile(candidats: Carte[], state: GameState): Carte {
   const modeAgressif = manchesHumain >= 3 && manchesIA === 0
   const modePrudent  = manchesIA >= 3 && manchesHumain === 0
   logger.debug('IA', `Difficile — mode: ${modeAgressif ? 'AGRESSIF' : modePrudent ? 'PRUDENT' : 'NORMAL'} (IA:${manchesIA} vs H:${manchesHumain})`)
+
+  // ── As étalés ou éviter le pli (tous niveaux) ──────────────
+  const asEtalees = strategieAsEtaleesOuEviter(candidats, state)
+  if (asEtalees) {
+    logger.debug('IA', `Difficile — AsÉtalés → ${asEtalees.rang}${asEtalees.couleur}`)
+    return asEtalees
+  }
 
   // ── Garder les atouts (tous niveaux) ────────────────────────
   const garderAtout = strategieGarderAtouts(candidats, state)
@@ -679,6 +700,81 @@ export const SEUIL_GARDER_ATOUTS = 50  // pioche ≤ 50 → mode nettoyage
  * Retourne la carte à jouer (sans atout si possible),
  * ou null si aucune restriction ne s'applique (→ fallback niveau).
  */
+// ============================================================
+// STRATÉGIE AS ÉTALÉS EN RÉPONSE — Tous niveaux
+// ============================================================
+//
+// Quand le joueur pose une carte non-atout ET non-brisque :
+//
+//   Cas 1 — L'IA a un As étalé non-atout qui gagne le pli :
+//     → jouer cet As (étalées prioritaires sur main)
+//     → objectif : capturer le pli et gagner une brisque de plus
+//
+//   Cas 2 — Aucun As étalé ne gagne :
+//     → jouer un 9, 8 ou 7 en main pour éviter de prendre le pli
+//     → objectif : ne pas gaspiller de cartes sur un pli sans valeur
+//
+// Ne s'applique PAS si la carte adverse est une brisque (As ou 10)
+// → les règles existantes gèrent ce cas.
+//
+// Ne s'applique qu'en réponse (carteOuverte présente).
+
+/**
+ * As étalés pour capturer un pli ordinaire, ou 9/8/7 pour l'éviter.
+ * Retourne null si aucune règle ne s'applique.
+ */
+function strategieAsEtaleesOuEviter(
+  candidats: Carte[],
+  state: GameState
+): Carte | null {
+  const carteOuverte = state.pliEnCours.carteJoueur0
+  const couleurAtout = state.couleurAtout
+
+  // Seulement en réponse
+  if (!carteOuverte) return null
+
+  // Si la carte adverse est une brisque → laisser les règles existantes gérer
+  if (carteOuverte.rang === 'A' || carteOuverte.rang === '10') return null
+
+  // Si la carte adverse est un atout → hors scope
+  if (couleurAtout && carteOuverte.couleur === couleurAtout) return null
+
+  const etaleesIA = state.joueurs[1].cartesEtalees
+
+  // ── Cas 1 : As étalé non-atout gagnant ───────────────────────
+  // Filtrer les As étalés non-atout présents dans les candidats
+  const asEtalesNonAtout = etaleesIA.filter(e =>
+    !e.estJoker &&
+    e.rang === 'A' &&
+    (!couleurAtout || e.couleur !== couleurAtout) &&
+    candidats.some(cand => cand.id === e.id)
+  )
+
+  if (asEtalesNonAtout.length > 0) {
+    // Vérifier lesquels gagnent réellement le pli
+    const asGagnants = candidatsGagnants(asEtalesNonAtout, carteOuverte, couleurAtout, 1)
+    if (asGagnants.length > 0) {
+      // Jouer le premier As gagnant (étalé prioritaire sur main)
+      const choix = asGagnants[0]
+      logger.debug('IA', `AsÉtalés — As étalé gagnant → ${choix.rang}${choix.couleur}`)
+      return choix
+    }
+  }
+
+  // ── Cas 2 : Pas d'As étalé gagnant → jouer 9/8/7 pour éviter de prendre ──
+  const RANGS_FAIBLES: Carte['rang'][] = ['9', '8', '7']
+  const cartesFaibles = candidats.filter(
+    c => !c.estJoker && RANGS_FAIBLES.includes(c.rang)
+  )
+  if (cartesFaibles.length > 0) {
+    const choix = carteAvecRangMinimal(cartesFaibles)
+    logger.debug('IA', `AsÉtalés — éviter le pli → ${choix.rang}${choix.couleur}`)
+    return choix
+  }
+
+  return null
+}
+
 function strategieGarderAtouts(
   candidats: Carte[],
   state: GameState
