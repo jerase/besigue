@@ -4,14 +4,37 @@
 // ============================================================
 
 import React from 'react'
-import type { CombinaisonDisponible, AnnoncePosee } from '../../types'
-import { NOM_AFFICHE_COMBINAISON } from '../../types'
+import type { CombinaisonDisponible, AnnoncePosee, Carte } from '../../types'
+import { NOM_AFFICHE_COMBINAISON, SYMBOLE_COULEUR } from '../../types'
 
 interface AnnouncementPanelProps {
   combisDisponibles: CombinaisonDisponible[]
   annonces: AnnoncePosee[]
+  cartesJoueur: Carte[]   // main + étalées du joueur humain (pour déduire la couleur)
   onAnnoncer: (combi: CombinaisonDisponible) => void
   onPasser: () => void
+}
+
+/**
+ * Construit un label enrichi pour un bouton d'annonce.
+ * Pour les mariages (atout ou hors-atout), ajoute le symbole
+ * de la couleur déduit des cartes qui composent la combinaison.
+ * Ex : "Mariage Atout ♣" ou "Mariage ♥"
+ */
+function labelCombinaison(combi: CombinaisonDisponible, cartesJoueur: Carte[]): string {
+  const base = NOM_AFFICHE_COMBINAISON[combi.nom]
+
+  if (combi.nom !== 'mariage_atout' && combi.nom !== 'mariage_hors_atout') {
+    return base
+  }
+
+  // Trouver la couleur via la première carte de la combinaison
+  const carteId = combi.cartesIds[0]
+  const carte = cartesJoueur.find(c => c.id === carteId)
+  if (!carte) return base
+
+  const symbole = SYMBOLE_COULEUR[carte.couleur]
+  return `${base} ${symbole}`
 }
 
 // Couleurs par type de combinaison
@@ -31,6 +54,7 @@ function getCouleur(nom: string) {
 export const AnnouncementPanel: React.FC<AnnouncementPanelProps> = ({
   combisDisponibles,
   annonces,
+  cartesJoueur,
   onAnnoncer,
   onPasser,
 }) => {
@@ -71,7 +95,7 @@ export const AnnouncementPanel: React.FC<AnnouncementPanelProps> = ({
               >
                 <div className="text-left">
                   <div className={`text-sm font-bold ${text}`}>
-                    {NOM_AFFICHE_COMBINAISON[combi.nom]}
+                    {labelCombinaison(combi, cartesJoueur)}
                   </div>
                   <div className={`text-xs font-bold ${badge} px-1.5 py-0.5 rounded-full inline-block mt-0.5`}>
                     +{combi.points} pts

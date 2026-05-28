@@ -463,6 +463,7 @@ export const EcranTable: React.FC<TableJeuProps> = ({
         <AnnouncementPanel
           combisDisponibles={combisDisponibles}
           annonces={annonces}
+          cartesJoueur={[...state.joueurs[0].main, ...state.joueurs[0].cartesEtalees]}
           onAnnoncer={onAnnoncer}
           onPasser={onPasser}
         />
