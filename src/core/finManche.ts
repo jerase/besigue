@@ -5,6 +5,7 @@
 
 import { initialiserPartie } from './init'
 import type { GameState, GameConfig, Couleur } from '../types'
+import { VALEURS_BRISQUES } from '../types'
 import { logger } from '../utils/logger'
 
 // ============================================================
@@ -83,12 +84,16 @@ export interface ResultatManche {
   centPoints: boolean              // victoire 4-0 en incluant un Charles Bézigue
 }
 
-export function appliquerFinManche(state: GameState): ResultatManche {
+export function appliquerFinManche(
+  state: GameState,
+  finAnticipee = false  // true = seuil atteint via annonces, cartes encore en main
+): ResultatManche {
   let newState = { ...state }
 
   // 1. Bonus dernier pli (+10 pts)
-  const bonusDernierPli = newState.dernierVainqueurPli
-  if (bonusDernierPli !== null) {
+  // Ignoré en fin anticipée (seuil atteint via annonces, pas de dernier pli significatif)
+  const bonusDernierPli = finAnticipee ? null : newState.dernierVainqueurPli
+  if (!finAnticipee && bonusDernierPli !== null) {
     const joueursMaj = [...newState.joueurs] as typeof newState.joueurs
     const nouveauScore = Math.max(0, joueursMaj[bonusDernierPli].marquePoints + 10)
     joueursMaj[bonusDernierPli] = { ...joueursMaj[bonusDernierPli], marquePoints: nouveauScore }
@@ -96,18 +101,36 @@ export function appliquerFinManche(state: GameState): ResultatManche {
     logger.info('FIN_MANCHE', `Bonus dernier pli +10 → J${bonusDernierPli}`)
   }
 
-  // 2. Calcul des brisques
-  const brisques = calculerBrisques(newState)
+  // 2 & 3. Calcul et application des brisques
+  // Ignorés en fin anticipée : les marques reflètent déjà le score réel
+  // (seul les annonces ont compté, pas les brisques en pile)
+  let brisques: ResultatBrisques
+  let scoreJ0ApresB: number
+  let scoreJ1ApresB: number
 
-  // 3. Appliquer les deltas brisques
-  const joueursMaj2 = [...newState.joueurs] as typeof newState.joueurs
-  const scoreJ0ApresB = Math.max(0, joueursMaj2[0].marquePoints + brisques.deltaJ0)
-  const scoreJ1ApresB = Math.max(0, joueursMaj2[1].marquePoints + brisques.deltaJ1)
-  joueursMaj2[0] = { ...joueursMaj2[0], marquePoints: scoreJ0ApresB, brisques: brisques.brisquesJ0 }
-  joueursMaj2[1] = { ...joueursMaj2[1], marquePoints: scoreJ1ApresB, brisques: brisques.brisquesJ1 }
-  newState = { ...newState, joueurs: joueursMaj2 }
-
-  logger.info('FIN_MANCHE', `Scores finaux: J0=${scoreJ0ApresB}, J1=${scoreJ1ApresB}`)
+  if (finAnticipee) {
+    // Fin anticipée : scores = marquePoints actuels, brisques neutres
+    brisques = {
+      brisquesJ0: newState.joueurs[0].pileRemportee.filter(c => VALEURS_BRISQUES[c.rang] > 0).length,
+      brisquesJ1: newState.joueurs[1].pileRemportee.filter(c => VALEURS_BRISQUES[c.rang] > 0).length,
+      deltaJ0: 0,
+      deltaJ1: 0,
+      gagnantBrisques: null,
+      casEgalite: false,
+    }
+    scoreJ0ApresB = newState.joueurs[0].marquePoints
+    scoreJ1ApresB = newState.joueurs[1].marquePoints
+    logger.info('FIN_MANCHE', `Fin anticipée — scores directs: J0=${scoreJ0ApresB}, J1=${scoreJ1ApresB}`)
+  } else {
+    brisques = calculerBrisques(newState)
+    const joueursMaj2 = [...newState.joueurs] as typeof newState.joueurs
+    scoreJ0ApresB = Math.max(0, joueursMaj2[0].marquePoints + brisques.deltaJ0)
+    scoreJ1ApresB = Math.max(0, joueursMaj2[1].marquePoints + brisques.deltaJ1)
+    joueursMaj2[0] = { ...joueursMaj2[0], marquePoints: scoreJ0ApresB, brisques: brisques.brisquesJ0 }
+    joueursMaj2[1] = { ...joueursMaj2[1], marquePoints: scoreJ1ApresB, brisques: brisques.brisquesJ1 }
+    newState = { ...newState, joueurs: joueursMaj2 }
+    logger.info('FIN_MANCHE', `Scores finaux: J0=${scoreJ0ApresB}, J1=${scoreJ1ApresB}`)
+  }
 
   // 4. Vérifier qui atteint 1000 pts (victoire de manche)
   const seuil = 1000

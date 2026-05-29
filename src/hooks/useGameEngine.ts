@@ -220,9 +220,15 @@ export function useGameEngine(): UseGameEngineReturn {
   ) => {
     // Fin de manche : seuil atteint via annonces ou pioche/mains épuisées
     const seuilAtteint = s.joueurs.some(j => j.marquePoints >= cfg.seuilVictoire)
-    if (seuilAtteint || mancheTerminee(s)) {
-      logger.info('ENGINE', seuilAtteint ? `Seuil ${cfg.seuilVictoire} pts atteint en cours de manche` : 'Fin de manche naturelle')
-      const resultat = appliquerFinManche(s)
+    const finNaturelle  = mancheTerminee(s)
+    if (seuilAtteint || finNaturelle) {
+      // finAnticipee = seuil atteint avec cartes encore en main
+      // → pas de brisques ni bonus dernier pli (marquePoints suffisent)
+      const finAnticipee = seuilAtteint && !finNaturelle
+      logger.info('ENGINE', seuilAtteint
+        ? `Seuil ${cfg.seuilVictoire} pts atteint${finAnticipee ? ' (fin anticipée)' : ''}`
+        : 'Fin de manche naturelle')
+      const resultat = appliquerFinManche(s, finAnticipee)
       setResultatManche(resultat)
       setState(resultat.state)
       if (cfg) sauvegarderEtat(cfg, resultat.state, h)
