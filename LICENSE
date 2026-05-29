@@ -1,0 +1,211 @@
+LICENCE PROPRIÉTAIRE — BÉSIGUE (VERSION HAÏTIENNE)
+Proprietary License — BÉSIGUE (Haitian Version)
+
+Copyright (c) 2026 Jacques ERASE
+Tous droits réservés / All rights reserved
+
+════════════════════════════════════════════════════════════════
+FRANÇAIS
+════════════════════════════════════════════════════════════════
+
+AVIS IMPORTANT — VEUILLEZ LIRE ATTENTIVEMENT AVANT TOUTE
+UTILISATION DE CE LOGICIEL.
+
+1. TITULAIRE DES DROITS
+
+   Ce logiciel, ses algorithmes, son code source, sa conception,
+   ses graphismes, ses règles de jeu implémentées et toute
+   documentation associée (ci-après « l'Œuvre ») sont la
+   propriété exclusive de Jacques ERASE et sont protégés par
+   les lois sur le droit d'auteur en vigueur en France, en Haïti
+   et dans tous les pays signataires de la Convention de Berne
+   pour la protection des œuvres littéraires et artistiques.
+
+2. DROITS ACCORDÉS
+
+   Sous réserve du respect des conditions définies aux articles
+   3 et 4 ci-dessous, le titulaire accorde à toute personne
+   physique un droit personnel, non exclusif, non transférable
+   et révocable aux fins suivantes :
+
+   a) Utilisation privée et non commerciale du logiciel à titre
+      personnel ;
+
+   b) Consultation du code source à des fins d'étude et
+      d'apprentissage personnels.
+
+3. RESTRICTIONS — CE QUI EST INTERDIT
+
+   Sauf autorisation écrite préalable et explicite de Jacques
+   ERASE, il est strictement interdit de :
+
+   a) Reproduire, copier, distribuer ou redistribuer l'Œuvre ou
+      toute partie de celle-ci, sous quelque forme que ce soit,
+      à titre gratuit ou onéreux ;
+
+   b) Modifier, adapter, traduire, décompiler, désassembler ou
+      créer des œuvres dérivées basées sur l'Œuvre ;
+
+   c) Utiliser l'Œuvre, son code source ou ses algorithmes, en
+      tout ou en partie, à des fins commerciales, y compris mais
+      sans s'y limiter : la vente, la location, le licensing, le
+      SaaS, l'intégration dans un produit commercial ;
+
+   d) Sous-licencier, céder ou transférer tout ou partie des
+      droits accordés par la présente licence à un tiers ;
+
+   e) Supprimer ou altérer les mentions de droit d'auteur, les
+      avis de propriété ou toute autre mention légale figurant
+      dans l'Œuvre ;
+
+   f) Publier ou mettre à disposition publiquement le code source,
+      les binaires ou tout composant de l'Œuvre sur un dépôt
+      public (GitHub, GitLab, npm, etc.) sans autorisation écrite.
+
+4. CONDITIONS D'UTILISATION PRIVÉE
+
+   L'utilisation privée tolérée (article 2) est soumise aux
+   conditions suivantes :
+
+   a) L'utilisation reste strictement personnelle et non publique ;
+
+   b) Aucune copie de l'Œuvre n'est transmise à un tiers ;
+
+   c) Toute copie locale réalisée à des fins d'étude conserve
+      intacts tous les avis de droit d'auteur et mentions légales.
+
+5. ABSENCE DE GARANTIE
+
+   L'ŒUVRE EST FOURNIE « EN L'ÉTAT », SANS GARANTIE D'AUCUNE
+   SORTE, EXPRESSE OU IMPLICITE, Y COMPRIS MAIS SANS S'Y
+   LIMITER LES GARANTIES DE QUALITÉ MARCHANDE, D'ADÉQUATION À
+   UN USAGE PARTICULIER ET D'ABSENCE DE CONTREFAÇON.
+
+   EN AUCUN CAS, LE TITULAIRE NE SAURAIT ÊTRE TENU RESPONSABLE
+   DE TOUT DOMMAGE DIRECT, INDIRECT, ACCESSOIRE, SPÉCIAL,
+   EXEMPLAIRE OU CONSÉCUTIF RÉSULTANT DE L'UTILISATION OU DE
+   L'IMPOSSIBILITÉ D'UTILISER L'ŒUVRE.
+
+6. RÉSILIATION
+
+   Tout manquement aux conditions de la présente licence entraîne
+   la résiliation automatique et immédiate de tous les droits
+   accordés. À la résiliation, le bénéficiaire doit cesser toute
+   utilisation et détruire toutes les copies en sa possession.
+
+7. DEMANDES D'AUTORISATION
+
+   Toute demande d'utilisation non couverte par la présente
+   licence (collaboration, licence commerciale, intégration dans
+   un autre projet) doit être adressée par écrit au titulaire.
+
+8. LOI APPLICABLE
+
+   La présente licence est régie par le droit français. Tout
+   litige relatif à son interprétation ou son exécution sera
+   soumis à la compétence exclusive des tribunaux compétents.
+
+
+════════════════════════════════════════════════════════════════
+ENGLISH
+════════════════════════════════════════════════════════════════
+
+IMPORTANT NOTICE — PLEASE READ CAREFULLY BEFORE USING
+THIS SOFTWARE.
+
+1. COPYRIGHT HOLDER
+
+   This software, its algorithms, source code, design, graphics,
+   implemented game rules, and all associated documentation
+   (hereinafter "the Work") are the exclusive property of
+   Jacques ERASE and are protected by applicable copyright laws
+   in France, Haiti, and all countries signatory to the Berne
+   Convention for the Protection of Literary and Artistic Works.
+
+2. RIGHTS GRANTED
+
+   Subject to compliance with the conditions set forth in
+   Articles 3 and 4 below, the copyright holder grants any
+   natural person a personal, non-exclusive, non-transferable,
+   and revocable right for the following purposes only:
+
+   a) Private, non-commercial use of the software for personal
+      purposes;
+
+   b) Viewing the source code for personal study and learning.
+
+3. RESTRICTIONS — WHAT IS PROHIBITED
+
+   Unless prior written authorization is expressly granted by
+   Jacques ERASE, the following are strictly prohibited:
+
+   a) Reproducing, copying, distributing, or redistributing the
+      Work or any part thereof, in any form, whether free of
+      charge or for payment;
+
+   b) Modifying, adapting, translating, decompiling,
+      disassembling, or creating derivative works based on
+      the Work;
+
+   c) Using the Work, its source code, or its algorithms, in
+      whole or in part, for commercial purposes, including but
+      not limited to: selling, renting, licensing, SaaS
+      delivery, or integration into a commercial product;
+
+   d) Sublicensing, assigning, or transferring any or all of
+      the rights granted under this license to any third party;
+
+   e) Removing or altering copyright notices, proprietary
+      notices, or any other legal notices appearing in the Work;
+
+   f) Publishing or making publicly available the source code,
+      binaries, or any component of the Work on a public
+      repository (GitHub, GitLab, npm, etc.) without written
+      authorization.
+
+4. CONDITIONS FOR PRIVATE USE
+
+   The tolerated private use (Article 2) is subject to the
+   following conditions:
+
+   a) Use remains strictly personal and non-public;
+
+   b) No copy of the Work is transmitted to any third party;
+
+   c) Any local copy made for study purposes retains intact all
+      copyright notices and legal mentions.
+
+5. DISCLAIMER OF WARRANTIES
+
+   THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+   OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+   NON-INFRINGEMENT.
+
+   IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+   DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+   CONSEQUENTIAL DAMAGES ARISING OUT OF OR IN ANY WAY CONNECTED
+   WITH THE USE OR INABILITY TO USE THE WORK.
+
+6. TERMINATION
+
+   Any breach of the conditions of this license results in the
+   automatic and immediate termination of all rights granted.
+   Upon termination, the beneficiary must cease all use and
+   destroy all copies in their possession.
+
+7. AUTHORIZATION REQUESTS
+
+   Any request for use not covered by this license (collaboration,
+   commercial license, integration into another project) must be
+   submitted in writing to the copyright holder.
+
+8. GOVERNING LAW
+
+   This license is governed by French law. Any dispute relating
+   to its interpretation or performance shall be subject to the
+   exclusive jurisdiction of the competent courts.
+
+════════════════════════════════════════════════════════════════
+
+Copyright (c) 2026 Jacques ERASE — Tous droits réservés / All rights reserved
