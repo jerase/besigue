@@ -17,7 +17,7 @@ describe('Intégration IT-2 — Cycle init → pioche × 2', () => {
     expect(s2.joueurs[0].main).toHaveLength(10)
     expect(s2.joueurs[1].main).toHaveLength(10)
     expect(s2.pioche).toHaveLength(112)
-    expect(s2.nbCartesRestantes).toBe(112)
+    expect(s2.pioche.length).toBe(112)
 
     // Intégrité : toujours 132 cartes en tout
     const total = s2.joueurs[0].main.length + s2.joueurs[1].main.length + s2.pioche.length
@@ -41,7 +41,7 @@ describe('Intégration IT-2 — Cycle init → pioche × 2', () => {
     }
 
     expect(state.pioche).toHaveLength(0)
-    expect(state.nbCartesRestantes).toBe(0)
+    expect(state.pioche.length).toBe(0)
   })
 })
 

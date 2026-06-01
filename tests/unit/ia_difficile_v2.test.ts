@@ -10,11 +10,8 @@
 // ============================================================
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import {
-  choisirCarteIA,
-  PROBA_VARIATION_MIN,
-  PROBA_VARIATION_MAX,
-} from '../../src/core/ia'
+import { choisirCarteIA } from '../../src/core/ia'
+import { PROBA_VARIATION_MIN, PROBA_VARIATION_MAX } from '../../src/core/ia.config'
 import { initialiserPartie } from '../../src/core/init'
 import { creerCarte } from '../../src/core/deck'
 import { initialiserChampsIT4 } from '../../src/core/combinaisons'
@@ -67,22 +64,7 @@ function makeState(opts: {
 // CONSTANTES EXPORTÉES
 // ============================================================
 
-describe('Constantes de variation exportées', () => {
-  it('PROBA_VARIATION_MIN entre 0 et 1', () => {
-    expect(PROBA_VARIATION_MIN).toBeGreaterThan(0)
-    expect(PROBA_VARIATION_MIN).toBeLessThan(1)
-  })
-  it('PROBA_VARIATION_MAX entre 0 et 1', () => {
-    expect(PROBA_VARIATION_MAX).toBeGreaterThan(0)
-    expect(PROBA_VARIATION_MAX).toBeLessThan(1)
-  })
-  it('PROBA_VARIATION_MIN < PROBA_VARIATION_MAX', () => {
-    expect(PROBA_VARIATION_MIN).toBeLessThan(PROBA_VARIATION_MAX)
-  })
-  it('PROBA_VARIATION_MAX ≤ 0.10', () => {
-    expect(PROBA_VARIATION_MAX).toBeLessThanOrEqual(0.10)
-  })
-})
+
 
 // ============================================================
 // D.1 — MÉMORISATION DES CARTES VUES

@@ -26,7 +26,7 @@ function makeStateAvecAnnonces(
   couleurAtout: Couleur = 'hearts'
 ): GameState {
   const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-  const state = initialiserChampsIT4({ ...base, couleurAtout, atoutDefini: true })
+  const state = initialiserChampsIT4({ ...base, couleurAtout })
   const annonceAtout: AnnoncePosee = {
     nom: 'mariage_atout', points: 40,
     cartesIds: [`${couleurAtout}-K-9-900`, `${couleurAtout}-Q-9-901`],
@@ -178,7 +178,7 @@ describe('Carré — cycle complet avec cartes mixtes main+étalées', () => {
     const roiC = c('clubs',    'K', 0, 4)
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
     state = {
       ...state,
       annonces: [

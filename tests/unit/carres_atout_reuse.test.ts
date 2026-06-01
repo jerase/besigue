@@ -27,7 +27,7 @@ function makeState(
   couleurAtout: Couleur = 'hearts'
 ): GameState {
   const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-  const state = initialiserChampsIT4({ ...base, couleurAtout, atoutDefini: true })
+  const state = initialiserChampsIT4({ ...base, couleurAtout })
   // Annonce de débloquage (mariage_Atout par l'adversaire)
   const unlock: AnnoncePosee = {
     nom: 'mariage_atout', points: 40,
@@ -184,7 +184,7 @@ describe('Cycle complet — carré normal puis carré atout bloqué', () => {
     const dC3 = c(atout, 'Q', 3, 4)
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
     // Mariage_Atout posé par J0 pour débloquer
     state = {
       ...state,
@@ -215,7 +215,7 @@ describe('Cycle complet — carré normal puis carré atout bloqué', () => {
     const rS3 = c(atout, 'K', 3, 4)
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
     state = {
       ...state,
       annonces: [

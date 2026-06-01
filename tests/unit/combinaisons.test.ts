@@ -41,7 +41,7 @@ function stateAvecMariageAtoutPose(
   overrides?: Partial<GameState>
 ): GameState {
   // stateAvecMain applique les overrides puis initialiserChampsIT4 (qui remet annonces:[])
-  const base = stateAvecMain(cartes, joueurId, { couleurAtout, atoutDefini: true, ...overrides })
+  const base = stateAvecMain(cartes, joueurId, { couleurAtout, ...overrides })
 
   // Injecter l'annonce factice APRÈS (sinon initialiserChampsIT4 l'efface)
   const annonceFactice: import('../../src/types').AnnoncePosee = {
@@ -67,7 +67,7 @@ describe('Mariages', () => {
     const state = stateAvecMain([
       c('hearts', 'K', 0, 1),
       c('hearts', 'Q', 0, 2),
-    ], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    ], 0, { couleurAtout: 'hearts' })
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
     expect(combis.some(c => c.nom === 'mariage_atout')).toBe(true)
@@ -89,7 +89,7 @@ describe('Mariages', () => {
     const state = stateAvecMain([
       c('hearts', 'K', 0, 1),
       c('hearts', 'Q', 0, 2),
-    ], 0, { couleurAtout: null, atoutDefini: false })
+    ], 0, { couleurAtout: null })
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
     expect(combis.length).toBeGreaterThan(0)
@@ -100,7 +100,7 @@ describe('Mariages', () => {
     const state = stateAvecMain([
       c('hearts', 'Q', 0, 1),
       c('hearts', 'J', 0, 2),
-    ], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    ], 0, { couleurAtout: 'hearts' })
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
     expect(combis.some(c => c.nom === 'mariage_atout' || c.nom === 'mariage_hors_atout')).toBe(false)
@@ -110,7 +110,7 @@ describe('Mariages', () => {
     const state = stateAvecMain([
       c('hearts', 'K', 0, 1),
       c('hearts', 'J', 0, 2),
-    ], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    ], 0, { couleurAtout: 'hearts' })
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
     expect(combis.some(c => c.nom === 'mariage_atout' || c.nom === 'mariage_hors_atout')).toBe(false)
@@ -120,7 +120,7 @@ describe('Mariages', () => {
     let state = stateAvecMain([
       c('hearts', 'K', 0, 1),
       c('hearts', 'Q', 0, 2),
-    ], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    ], 0, { couleurAtout: 'hearts' })
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
     const mariage = combis.find(c => c.nom === 'mariage_atout')!
@@ -154,7 +154,7 @@ describe('Quinte', () => {
     const valet = c(atout, 'J', 0, 5)
 
     let state = stateAvecMain([roi, dame, as, dix, valet], 0, {
-      couleurAtout: atout, atoutDefini: true,
+      couleurAtout: atout,
     })
 
     // Poser le mariage_Atout (premier mariage → débloque toutes les combis)
@@ -174,7 +174,7 @@ describe('Quinte', () => {
       c(atout, 'A', 0, 3),
       c(atout, '10', 0, 4),
       c(atout, 'J', 0, 5),
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
     // mariagesAtoutActifs vide → pas de quinte
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
@@ -186,7 +186,7 @@ describe('Quinte', () => {
     let state = stateAvecMain([
       c(atout, 'K', 0, 1), c(atout, 'Q', 0, 2),
       c(atout, '10', 0, 4), c(atout, 'J', 0, 5),
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
     // Pose le mariage pour débloquer les combis
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
     expect(m).toBeDefined()
@@ -200,7 +200,7 @@ describe('Quinte', () => {
     const atout: Couleur = 'clubs'
     const roi = c(atout, 'K', 0, 1), dame = c(atout, 'Q', 0, 2)
     const as = c(atout, 'A', 0, 3), dix = c(atout, '10', 0, 4), valet = c(atout, 'J', 0, 5)
-    let state = stateAvecMain([roi, dame, as, dix, valet], 0, { couleurAtout: atout, atoutDefini: true })
+    let state = stateAvecMain([roi, dame, as, dix, valet], 0, { couleurAtout: atout })
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
     expect(m).toBeDefined()
     state = appliquerAnnonce(state, 0, m) // débloque les combis
@@ -322,7 +322,7 @@ describe('Carrés d\'atout', () => {
     // Sans mariage_Atout posé, aucun carré d'atout n'est possible
     const state = stateAvecMain([
       c(atout,'A',0,1), c(atout,'A',1,33), c(atout,'A',2,65), c(atout,'A',3,97),
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
     // annonces vides → prérequis non satisfait
     expect(detecterCombinaisonsDisponibles(state, 0).some(c => c.nom === '4_as_atout')).toBe(false)
   })
@@ -405,7 +405,7 @@ describe('Réutilisation des cartes', () => {
       c('spades', 'K', 0, 10),
       c('diamonds', 'K', 0, 11),
       c('clubs', 'K', 0, 12),
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
 
     // J0 pose son mariage_Atout (premier mariage → débloque tout)
     const mariage = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
@@ -420,7 +420,7 @@ describe('Réutilisation des cartes', () => {
   it('la même paire (Roi+Dame) ne peut PAS reformer le même mariage', () => {
     const roi = c('hearts', 'K', 0, 1)
     const dame = c('hearts', 'Q', 0, 2)
-    let state = stateAvecMain([roi, dame], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    let state = stateAvecMain([roi, dame], 0, { couleurAtout: 'hearts' })
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
     state = appliquerAnnonce(state, 0, m)
@@ -447,19 +447,19 @@ describe('Mariage_Atout dynamique', () => {
   it('poser mariage_Atout définit la couleur d\'atout', () => {
     const roi  = c('diamonds', 'K', 0, 1)
     const dame = c('diamonds', 'Q', 0, 2)
-    let state = stateAvecMain([roi, dame], 0, { couleurAtout: null, atoutDefini: false })
+    let state = stateAvecMain([roi, dame], 0, { couleurAtout: null })
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
     state = appliquerAnnonce(state, 0, m)
 
     expect(state.couleurAtout).toBe('diamonds')
-    expect(state.atoutDefini).toBe(true)
+    expect(state.couleurAtout).not.toBeNull()
   })
 
   it('gererCassureMariageAtout : jouer le Roi casse le mariage_Atout', () => {
     const roi  = c('hearts', 'K', 0, 1)
     const dame = c('hearts', 'Q', 0, 2)
-    let state = stateAvecMain([roi, dame], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    let state = stateAvecMain([roi, dame], 0, { couleurAtout: 'hearts' })
     state = {
       ...state,
       mariagesAtoutActifs: { 0: [[roi.id, dame.id]], 1: [] },
@@ -473,7 +473,7 @@ describe('Mariage_Atout dynamique', () => {
     const roi  = c('hearts', 'K', 0, 1)
     const dame = c('hearts', 'Q', 0, 2)
     const as   = c('hearts', 'A', 0, 3)
-    let state = stateAvecMain([roi, dame, as], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    let state = stateAvecMain([roi, dame, as], 0, { couleurAtout: 'hearts' })
     state = {
       ...state,
       mariagesAtoutActifs: { 0: [[roi.id, dame.id]], 1: [] },
@@ -492,7 +492,7 @@ describe('appliquerAnnonce', () => {
     let state = stateAvecMain([
       c('hearts', 'K', 0, 1),
       c('hearts', 'Q', 0, 2),
-    ], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    ], 0, { couleurAtout: 'hearts' })
     // Le mariage_Atout est la première annonce, pas de prérequis pour lui-même
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
@@ -503,7 +503,7 @@ describe('appliquerAnnonce', () => {
   it('les cartes sont déplacées de la main vers cartesEtalees', () => {
     const roi  = c('hearts', 'K', 0, 1)
     const dame = c('hearts', 'Q', 0, 2)
-    let state = stateAvecMain([roi, dame], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    let state = stateAvecMain([roi, dame], 0, { couleurAtout: 'hearts' })
     // mariage_Atout = pas de prérequis (c'est lui le premier)
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
@@ -516,7 +516,7 @@ describe('appliquerAnnonce', () => {
   it('l\'annonce est ajoutée à l\'historique', () => {
     let state = stateAvecMain([
       c('hearts', 'K', 0, 1), c('hearts', 'Q', 0, 2),
-    ], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    ], 0, { couleurAtout: 'hearts' })
     // mariage_Atout = pas de prérequis
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!

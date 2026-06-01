@@ -43,7 +43,7 @@ describe('Prérequis mariage_Atout — AVANT le premier mariage', () => {
       c('clubs', 'A', 0, 4),
       c('spades', 'A', 0, 5),
       c('diamonds', 'A', 0, 6),
-    ], 0, { couleurAtout: null, atoutDefini: false })
+    ], 0, { couleurAtout: null })
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
     expect(combis).toHaveLength(0)
@@ -53,7 +53,7 @@ describe('Prérequis mariage_Atout — AVANT le premier mariage', () => {
     const state = makeState([
       c('spades', 'Q', 0, 1),
       c('diamonds', 'J', 0, 2),
-    ], 0, { couleurAtout: null, atoutDefini: false })
+    ], 0, { couleurAtout: null })
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
     expect(combis.some(c => c.nom === 'besigue')).toBe(false)
@@ -63,7 +63,7 @@ describe('Prérequis mariage_Atout — AVANT le premier mariage', () => {
     const state = makeState([
       c('spades', 'A', 0, 1), c('hearts', 'A', 0, 5),
       c('diamonds', 'A', 0, 9), c('clubs', 'A', 0, 13),
-    ], 0, { couleurAtout: null, atoutDefini: false })
+    ], 0, { couleurAtout: null })
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
     expect(combis.some(c => c.nom === '4_as')).toBe(false)
@@ -74,7 +74,7 @@ describe('Prérequis mariage_Atout — AVANT le premier mariage', () => {
     const state = makeState([
       c('spades', 'K', 0, 1),
       c('spades', 'Q', 0, 2),
-    ], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    ], 0, { couleurAtout: 'hearts' })
     // annonces vides → aucun mariage_Atout posé
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
@@ -84,7 +84,7 @@ describe('Prérequis mariage_Atout — AVANT le premier mariage', () => {
   it('sept d\'atout non disponible avant le premier mariage_Atout', () => {
     const state = makeState([
       c('hearts', '7', 0, 1),
-    ], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    ], 0, { couleurAtout: 'hearts' })
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
     expect(combis.some(c => c.nom === 'sept_atout')).toBe(false)
@@ -99,7 +99,6 @@ describe('Prérequis mariage_Atout — AVANT le premier mariage', () => {
       roi, dame, c(atout, 'A', 0, 3), c(atout, '10', 0, 4), c(atout, 'J', 0, 5),
     ], 0, {
       couleurAtout: atout,
-      atoutDefini: true,
       mariagesAtoutActifs: { 0: [[roi.id, dame.id]], 1: [] },
       // annonces vides → aucun mariage_Atout officiellement posé
     })
@@ -114,7 +113,7 @@ describe('Prérequis mariage_Atout — AVANT le premier mariage', () => {
       c('hearts', 'Q', 0, 2),
       c('spades', 'Q', 0, 3),   // bésigue potentiel
       c('diamonds', 'J', 0, 4), // bésigue potentiel
-    ], 0, { couleurAtout: null, atoutDefini: false })
+    ], 0, { couleurAtout: null })
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
     expect(combis.length).toBeGreaterThan(0)
@@ -128,7 +127,7 @@ describe('Prérequis mariage_Atout — AVANT le premier mariage', () => {
       c('diamonds', 'J', 0, 2),
       c('hearts', 'A', 0, 3),
       c('clubs', 'K', 0, 4),
-    ], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    ], 0, { couleurAtout: 'hearts' })
     // annonces vides
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
@@ -148,7 +147,7 @@ describe('Prérequis mariage_Atout — APRÈS le premier mariage', () => {
     let state = makeState([
       c(atout, 'K', 0, 1), c(atout, 'Q', 0, 2),
       c('spades', 'Q', 0, 3), c('diamonds', 'J', 0, 4), // bésigue
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
     state = appliquerAnnonce(state, 0, m)
@@ -163,7 +162,7 @@ describe('Prérequis mariage_Atout — APRÈS le premier mariage', () => {
     // J0 a un mariage_Atout
     let state = makeState([
       c(atout, 'K', 0, 1), c(atout, 'Q', 0, 2),
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
 
     // Donner à J1 un bésigue + carré
     const joueurs = [...state.joueurs] as typeof state.joueurs
@@ -195,7 +194,6 @@ describe('Prérequis mariage_Atout — APRÈS le premier mariage', () => {
     let state = initialiserChampsIT4({
       ...base,
       couleurAtout: atout,
-      atoutDefini: true,
     })
 
     // Donner à J1 un mariage_Atout
@@ -228,7 +226,7 @@ describe('Prérequis mariage_Atout — APRÈS le premier mariage', () => {
     let state = makeState([
       c(atout, 'K', 0, 1), c(atout, 'Q', 0, 2),  // mariage atout
       c('spades', 'K', 0, 10), c('spades', 'Q', 0, 11), // mariage hors-atout
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
     state = appliquerAnnonce(state, 0, m)
@@ -243,7 +241,7 @@ describe('Prérequis mariage_Atout — APRÈS le premier mariage', () => {
       c(atout, 'K', 0, 1), c(atout, 'Q', 0, 2),
       c('spades', 'A', 0, 5), c('hearts', 'A', 0, 9),
       c('diamonds', 'A', 0, 13), c('clubs', 'A', 0, 17),
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
     state = appliquerAnnonce(state, 0, m)
@@ -257,7 +255,7 @@ describe('Prérequis mariage_Atout — APRÈS le premier mariage', () => {
     let state = makeState([
       c(atout, 'K', 0, 1), c(atout, 'Q', 0, 2),
       c(atout, '7', 0, 7),
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
     state = appliquerAnnonce(state, 0, m)
@@ -272,7 +270,7 @@ describe('Prérequis mariage_Atout — APRÈS le premier mariage', () => {
     let state = makeState([
       c(atout, 'K', 0, 1), c(atout, 'Q', 0, 2),
       c(atout, 'A', 0, 3), c(atout, '10', 0, 4), c(atout, 'J', 0, 5),
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
     state = appliquerAnnonce(state, 0, m)
@@ -291,7 +289,7 @@ describe('Prérequis mariage_Atout — débloquage symétrique', () => {
   it('J0 pose mariage_Atout → J1 peut annocer immédiatement après', () => {
     const atout: Couleur = 'clubs'
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
 
     const joueurs = [...state.joueurs] as typeof state.joueurs
     joueurs[0] = { ...joueurs[0], main: [c(atout, 'K', 0, 1), c(atout, 'Q', 0, 2)], cartesEtalees: [] }
@@ -312,7 +310,7 @@ describe('Prérequis mariage_Atout — débloquage symétrique', () => {
 
   it('avant mariage_Atout : ni J0 ni J1 ne peuvent annocer (sauf le mariage)', () => {
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: null, atoutDefini: false })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: null })
 
     const joueurs = [...state.joueurs] as typeof state.joueurs
     // J0 a plein de combis
@@ -348,7 +346,7 @@ describe('Prérequis mariage_Atout — débloquage symétrique', () => {
   it('séquence complète : J1 pose mariage_Atout, J0 annonce bésigue au tour suivant', () => {
     const atout: Couleur = 'hearts'
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
 
     const joueurs = [...state.joueurs] as typeof state.joueurs
     joueurs[0] = { ...joueurs[0], main: [c('spades', 'Q', 0, 1), c('diamonds', 'J', 0, 4)], cartesEtalees: [] }
@@ -392,7 +390,7 @@ describe('Non-régression — réutilisation cartes dans mariages', () => {
     const dameS1 = c('spades', 'Q', 1, 43)  // en main — sans Roi libre → pas de nouveau mariage
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
     // Injecter annonces APRÈS initialiserChampsIT4 (sinon elles seraient écrasées)
     state = {
       ...state,
@@ -417,7 +415,7 @@ describe('Non-régression — réutilisation cartes dans mariages', () => {
     const dameS0 = c('spades', 'Q', 0, 11)  // déjà dans un mariage
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
     state = {
       ...state,
       annonces: [
@@ -448,7 +446,7 @@ describe('Non-régression — réutilisation cartes dans mariages', () => {
     const dameS1 = c('spades', 'Q', 1, 43)  // libre ✓
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
     state = {
       ...state,
       annonces: [
@@ -486,7 +484,7 @@ describe('Non-régression — réutilisation cartes dans mariages', () => {
     const dameC = c('clubs',  'Q', 0, 15)
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
     state = {
       ...state,
       annonces: [

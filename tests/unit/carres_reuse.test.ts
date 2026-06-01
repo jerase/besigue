@@ -28,7 +28,7 @@ function makeStateAvecAnnonces(
   couleurAtout: Couleur = 'hearts'
 ): GameState {
   const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-  const state = initialiserChampsIT4({ ...base, couleurAtout, atoutDefini: true })
+  const state = initialiserChampsIT4({ ...base, couleurAtout })
 
   const annonceAtout: AnnoncePosee = {
     nom: 'mariage_atout', points: 40,
@@ -291,7 +291,7 @@ describe('Carrés — cycle complet via appliquerAnnonce', () => {
     const roiC = c('clubs',    'K', 0, 13)
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
     // Mariage_Atout posé pour débloquer
     state = {
       ...state,
@@ -322,7 +322,7 @@ describe('Carrés — cycle complet via appliquerAnnonce', () => {
     const valC = c(atout,      'J', 0, 13)
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
     state = {
       ...state,
       annonces: [
@@ -350,7 +350,7 @@ describe('Carrés — cycle complet via appliquerAnnonce', () => {
     const asC = c('clubs',    'A', 0, 13)
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
     state = {
       ...state,
       annonces: [

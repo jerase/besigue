@@ -137,7 +137,6 @@ describe('Cartes étalées — obligation de couleur en phase finale', () => {
 
     const state = makeState([], [carteEtalee], {
       couleurAtout: atout,
-      atoutDefini: true,
       phase: 'finale',
       pliEnCours: { carteJoueur0: null, carteJoueur1: carteAdverse, joueurOuvreur: 1 },
     })
@@ -190,7 +189,6 @@ describe('Cartes étalées — obligation de couleur en phase finale', () => {
 
     const state = makeState([], [carteEtalee], {
       couleurAtout: atout,
-      atoutDefini: true,
       phase: 'finale',
       pliEnCours: { carteJoueur0: null, carteJoueur1: carteAdverse, joueurOuvreur: 1 },
     })
@@ -208,7 +206,6 @@ describe('Cartes étalées — obligation de couleur en phase finale', () => {
 
     const state = makeState([], [carteObligation, carteInterdite], {
       couleurAtout: atout,
-      atoutDefini: true,
       phase: 'finale',
       pliEnCours: { carteJoueur0: null, carteJoueur1: carteAdverse, joueurOuvreur: 1 },
     })

@@ -129,7 +129,6 @@ describe('IA Intermédiaire — heuristique', () => {
 
     const state = makeState([asCoeur, septPique], [], {
       couleurAtout: atout,
-      atoutDefini: true,
       joueurActif: 1,
       pliEnCours: {
         carteJoueur0: { ...carteHumain, faceUp: true, etat: 'played' },
@@ -161,7 +160,7 @@ describe('IA Difficile — stratégique', () => {
     const huit  = c('clubs','8',0,4)    // carte sacrifice
 
     const state = makeState([roiS, dameS, sept, huit], [], {
-      couleurAtout: atout, atoutDefini: true,
+      couleurAtout: atout,
       annonces: [{ nom: 'mariage_atout' as const, points: 40, cartesIds: ['hearts-K-9-900', 'hearts-Q-9-901'], joueurId: 1 as const, mancheNumero: 1 }],
     })
 
@@ -183,7 +182,6 @@ describe('IA Difficile — stratégique', () => {
 
     const state = makeState([asAtout, sept], [], {
       couleurAtout: atout,
-      atoutDefini: true,
       joueurActif: 1,
       pliEnCours: {
         carteJoueur0: { ...carteHumain, faceUp: true, etat: 'played' },
@@ -233,7 +231,7 @@ describe('IA en phase finale — obligation de couleur', () => {
     const carteHumain = c('spades','A',0,3)   // humain a joué As♠
 
     const state = makeState([cartePique, carteCoeur], [], {
-      couleurAtout: atout, atoutDefini: true,
+      couleurAtout: atout,
       phase: 'finale',
       joueurActif: 1,
       pliEnCours: {

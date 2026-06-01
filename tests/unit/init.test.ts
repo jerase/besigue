@@ -133,7 +133,7 @@ describe('initialiserPartie', () => {
 
   it('la pioche contient 132 - 18 = 114 cartes', () => {
     expect(state.pioche).toHaveLength(114)
-    expect(state.nbCartesRestantes).toBe(114)
+    expect(state.pioche.length).toBe(114)
   })
 
   it('les cartes du joueur humain sont faceUp=true', () => {
@@ -178,7 +178,7 @@ describe('initialiserPartie', () => {
 
   it('atout non défini au départ (SF-10.2)', () => {
     expect(state.couleurAtout).toBeNull()
-    expect(state.atoutDefini).toBe(false)
+    expect(state.couleurAtout).toBeNull()
   })
 
   it('premierBesiguePose = false au départ', () => {
@@ -223,7 +223,6 @@ describe('piocher', () => {
     const avant = state.pioche.length
     const { state: apres } = piocher(state, 0)
     expect(apres.pioche).toHaveLength(avant - 1)
-    expect(apres.nbCartesRestantes).toBe(avant - 1)
   })
 
   it('ajoute 1 carte à la main du joueur', () => {
@@ -245,7 +244,7 @@ describe('piocher', () => {
   })
 
   it('retourne null si pioche vide', () => {
-    const stateVide = { ...state, pioche: [], nbCartesRestantes: 0 }
+    const stateVide = { ...state, pioche: [], }
     const { cartePiochee } = piocher(stateVide, 0)
     expect(cartePiochee).toBeNull()
   })

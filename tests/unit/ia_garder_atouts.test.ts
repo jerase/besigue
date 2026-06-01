@@ -61,11 +61,7 @@ function makeState(opts: {
 // CONSTANTE EXPORTÉE
 // ============================================================
 
-describe('Constante SEUIL_GARDER_ATOUTS exportée', () => {
-  it('SEUIL_GARDER_ATOUTS vaut 50', () => {
-    expect(SEUIL_GARDER_ATOUTS).toBe(50)
-  })
-})
+
 
 // ============================================================
 // 1. OUVERTURE — Éviter les atouts

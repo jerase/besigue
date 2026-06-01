@@ -41,7 +41,7 @@ describe('IT-4 intégration — Mariage puis Quinte', () => {
     let state = makeState([
       c(atout, 'K', 0, 1), c(atout, 'Q', 0, 2),
       c(atout, 'A', 0, 3), c(atout, '10', 0, 4), c(atout, 'J', 0, 5),
-    ], 0, { couleurAtout: null, atoutDefini: false })
+    ], 0, { couleurAtout: null })
 
     // Avant mariage : pas de quinte
     expect(detecterCombinaisonsDisponibles(state, 0).some(c => c.nom === 'quinte')).toBe(false)
@@ -62,7 +62,7 @@ describe('IT-4 intégration — Mariage puis Quinte', () => {
     let state = makeState([
       c(atout, 'K', 0, 1), c(atout, 'Q', 0, 2),
       c(atout, 'A', 0, 3), c(atout, '10', 0, 4), c(atout, 'J', 0, 5),
-    ], 0, { couleurAtout: null, atoutDefini: false })
+    ], 0, { couleurAtout: null })
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
     state = appliquerAnnonce(state, 0, m) // +40
@@ -111,7 +111,7 @@ describe('IT-4 intégration — Carré atout et carré normal', () => {
     let state = makeState([
       c(atout,'A',0,1), c(atout,'A',1,33), c(atout,'A',2,65), c(atout,'A',3,97),
       c('spades','A',0,5), c('clubs','A',0,13), c('diamonds','A',0,9),
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
     // Débloquer via mariage_Atout factice
     state = avecMariagePose(state, atout)
 
@@ -152,7 +152,7 @@ describe('IT-4 intégration — Joker dans carré normal', () => {
     const joker = creerJoker('clubs', 0, 128)
     const state = makeState([
       c(atout,'K',0,2), c(atout,'K',1,34), c(atout,'K',2,66), joker,
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
 
     const combis = detecterCombinaisonsDisponibles(state, 0)
     expect(combis.some(c => c.nom === '4_roi_atout')).toBe(false)
@@ -170,7 +170,7 @@ describe('IT-4 intégration — Intégrité état', () => {
     let state = makeState([
       c(atout,'K',0,1), c(atout,'Q',0,2),
       c('spades','Q',0,3), c('diamonds','J',0,4),
-    ], 0, { couleurAtout: atout, atoutDefini: true })
+    ], 0, { couleurAtout: atout })
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
     state = appliquerAnnonce(state, 0, m)
@@ -187,7 +187,7 @@ describe('IT-4 intégration — Intégrité état', () => {
   it('les usages des cartes sont bien enregistrés', () => {
     const roi  = c('hearts', 'K', 0, 1)
     const dame = c('hearts', 'Q', 0, 2)
-    let state = makeState([roi, dame], 0, { couleurAtout: 'hearts', atoutDefini: true })
+    let state = makeState([roi, dame], 0, { couleurAtout: 'hearts' })
 
     const m = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
     state = appliquerAnnonce(state, 0, m)

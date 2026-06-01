@@ -26,7 +26,7 @@ function makeState(
   joueurActif: 0 | 1 = 0
 ): GameState {
   const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-  const state = initialiserChampsIT4({ ...base, couleurAtout, atoutDefini: true })
+  const state = initialiserChampsIT4({ ...base, couleurAtout })
   const annonceAtout: AnnoncePosee = {
     nom: 'mariage_atout', points: 40,
     cartesIds: [`${couleurAtout}-K-9-900`, `${couleurAtout}-Q-9-901`],
@@ -153,7 +153,7 @@ describe('Sept d\'atout — +10 pts automatiques dans appliquerPli', () => {
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
     const state = initialiserChampsIT4({
       ...base,
-      couleurAtout: atout, atoutDefini: true,
+      couleurAtout: atout,
       annonces: [{ nom: 'mariage_atout', points: 40, cartesIds: [`${atout}-K-9-900`, `${atout}-Q-9-901`], joueurId: 1, mancheNumero: 1 }],
       pliEnCours: { carteJoueur0: { ...sept, faceUp: true, etat: 'played' }, carteJoueur1: { ...carteIA, faceUp: true, etat: 'played' }, joueurOuvreur: 0 },
       joueurs: [
@@ -176,7 +176,7 @@ describe('Sept d\'atout — +10 pts automatiques dans appliquerPli', () => {
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
     const state = initialiserChampsIT4({
       ...base,
-      couleurAtout: atout, atoutDefini: true,
+      couleurAtout: atout,
       annonces: [{ nom: 'mariage_atout', points: 40, cartesIds: [`${atout}-K-9-900`, `${atout}-Q-9-901`], joueurId: 1, mancheNumero: 1 }],
       pliEnCours: { carteJoueur0: { ...carteHumain, faceUp: true, etat: 'played' }, carteJoueur1: { ...sept, faceUp: true, etat: 'played' }, joueurOuvreur: 0 },
       joueurs: [
@@ -199,7 +199,7 @@ describe('Sept d\'atout — +10 pts automatiques dans appliquerPli', () => {
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
     const state = initialiserChampsIT4({
       ...base,
-      couleurAtout: atout, atoutDefini: true,
+      couleurAtout: atout,
       annonces: [{ nom: 'mariage_atout', points: 40, cartesIds: [`${atout}-K-9-900`, `${atout}-Q-9-901`], joueurId: 1, mancheNumero: 1 }],
       pliEnCours: { carteJoueur0: { ...carte0, faceUp: true, etat: 'played' }, carteJoueur1: { ...carte1, faceUp: true, etat: 'played' }, joueurOuvreur: 0 },
       joueurs: [
@@ -219,7 +219,7 @@ describe('Sept d\'atout — +10 pts automatiques dans appliquerPli', () => {
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
     const state = {
-      ...initialiserChampsIT4({ ...base, couleurAtout: null, atoutDefini: false }),
+      ...initialiserChampsIT4({ ...base, couleurAtout: null }),
       pliEnCours: { carteJoueur0: { ...sept, faceUp: true, etat: 'played' as const }, carteJoueur1: { ...autre, faceUp: true, etat: 'played' as const }, joueurOuvreur: 0 as const },
       joueurs: [
         { ...base.joueurs[0], main: [], marquePoints: 0 },
@@ -240,7 +240,7 @@ describe('Sept d\'atout — +10 pts automatiques dans appliquerPli', () => {
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
     const state = initialiserChampsIT4({
       ...base,
-      couleurAtout: atout, atoutDefini: true,
+      couleurAtout: atout,
       annonces: [{ nom: 'mariage_atout', points: 40, cartesIds: [`${atout}-K-9-900`, `${atout}-Q-9-901`], joueurId: 1, mancheNumero: 1 }],
       pliEnCours: { carteJoueur0: { ...septNonAtout, faceUp: true, etat: 'played' }, carteJoueur1: { ...autre, faceUp: true, etat: 'played' }, joueurOuvreur: 0 },
       joueurs: [

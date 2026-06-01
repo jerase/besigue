@@ -147,7 +147,7 @@ describe('Intégration IT-3 — bonus 7 d\'atout', () => {
     let { state } = initialiserPartie(CONFIG_DEFAUT)
 
     // Définir l'atout hearts
-    state = { ...state, couleurAtout: 'hearts', atoutDefini: true }
+    state = { ...state, couleurAtout: 'hearts' }
 
     // Injecter un 7 de cœur (atout) dans la main de J0
     const sept7 = { ...state.joueurs[0].main[0], rang: '7' as const, couleur: 'hearts' as const, estJoker: false }
@@ -188,7 +188,7 @@ describe('Intégration IT-3 — transition phase finale', () => {
     let { state } = initialiserPartie(CONFIG_DEFAUT)
 
     // Vider la pioche artificiellement
-    state = { ...state, pioche: [], nbCartesRestantes: 0, phase: 'libre' }
+    state = { ...state, pioche: [], phase: 'libre' }
 
     // Simuler un pli
     state = { ...state, joueurActif: 0, pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0 } }
@@ -201,7 +201,7 @@ describe('Intégration IT-3 — transition phase finale', () => {
     // Après le pli avec pioche vide → la phase doit basculer
     // (normalement géré par l'orchestrateur, mais l'état pioche=0 est là)
     expect(resolved.pioche.length).toBe(0)
-    expect(resolved.nbCartesRestantes).toBe(0)
+    expect(resolved.pioche.length).toBe(0)
   })
 })
 

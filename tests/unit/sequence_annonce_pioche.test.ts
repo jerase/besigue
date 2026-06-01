@@ -33,7 +33,7 @@ function makeStateApresVictoirePli(
 ): GameState {
   const { state: base } = initialiserPartie(CONFIG_DEFAUT)
   // 1. Initialiser les champs IT-4
-  let state = initialiserChampsIT4({ ...base, couleurAtout, atoutDefini: true })
+  let state = initialiserChampsIT4({ ...base, couleurAtout })
   // 2. Injecter les annonces et les combisEnAttente APRÈS initialiserChampsIT4
   state = {
     ...state,
@@ -41,7 +41,6 @@ function makeStateApresVictoirePli(
     dernierVainqueurPli: 0,
     pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0 },
     pioche: piocheCartes,
-    nbCartesRestantes: piocheCartes.length,
     annonces: [
       { nom: 'mariage_atout' as const, points: 40, cartesIds: [`${couleurAtout}-K-9-900`, `${couleurAtout}-Q-9-901`], joueurId: 1 as const, mancheNumero: 1 },
       ...annoncesSupp,

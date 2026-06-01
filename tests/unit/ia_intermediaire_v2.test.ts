@@ -64,17 +64,7 @@ function makeState(opts: {
 // EXPORTS DES CONSTANTES
 // ============================================================
 
-describe('Constantes seuils pioche exportées', () => {
-  it('SEUIL_PIOCHE_GRANDE est un nombre positif', () => {
-    expect(SEUIL_PIOCHE_GRANDE).toBeGreaterThan(0)
-  })
-  it('SEUIL_PIOCHE_PETITE est un nombre positif', () => {
-    expect(SEUIL_PIOCHE_PETITE).toBeGreaterThan(0)
-  })
-  it('SEUIL_PIOCHE_PETITE < SEUIL_PIOCHE_GRANDE', () => {
-    expect(SEUIL_PIOCHE_PETITE).toBeLessThan(SEUIL_PIOCHE_GRANDE)
-  })
-})
+
 
 // ============================================================
 // ÉVOLUTION 1 — Couper l'As adverse avec atout

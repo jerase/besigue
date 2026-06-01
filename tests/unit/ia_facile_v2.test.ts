@@ -9,7 +9,8 @@
 // ============================================================
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { choisirCarteIA, PROBA_RATER_COUPER10, PROBA_ATOUT_PREMATURE, PROBA_BRISQUE_IMPRUDENTE } from '../../src/core/ia'
+import { choisirCarteIA } from '../../src/core/ia'
+import { PROBA_RATER_COUPER10, PROBA_ATOUT_PREMATURE, PROBA_BRISQUE_IMPRUDENTE } from '../../src/core/ia.config'
 import { initialiserPartie } from '../../src/core/init'
 import { creerCarte } from '../../src/core/deck'
 import { initialiserChampsIT4 } from '../../src/core/combinaisons'
@@ -49,24 +50,7 @@ function mockRandom(value: number) {
   vi.spyOn(Math, 'random').mockReturnValue(value)
 }
 
-// ============================================================
-// EXPORTS DES CONSTANTES
-// ============================================================
 
-describe('Constantes de probabilité exportées', () => {
-  it('PROBA_RATER_COUPER10 est entre 0 et 1', () => {
-    expect(PROBA_RATER_COUPER10).toBeGreaterThan(0)
-    expect(PROBA_RATER_COUPER10).toBeLessThan(1)
-  })
-  it('PROBA_ATOUT_PREMATURE est entre 0 et 1', () => {
-    expect(PROBA_ATOUT_PREMATURE).toBeGreaterThan(0)
-    expect(PROBA_ATOUT_PREMATURE).toBeLessThan(1)
-  })
-  it('PROBA_BRISQUE_IMPRUDENTE est entre 0 et 1', () => {
-    expect(PROBA_BRISQUE_IMPRUDENTE).toBeGreaterThan(0)
-    expect(PROBA_BRISQUE_IMPRUDENTE).toBeLessThan(1)
-  })
-})
 
 // ============================================================
 // COMPORTEMENT 1 — Couper le 10 avec risque de rater

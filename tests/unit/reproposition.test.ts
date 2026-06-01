@@ -29,7 +29,7 @@ function makeStateAvecAnnonces(
   premierBesiguePose = false
 ): GameState {
   const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-  const state = initialiserChampsIT4({ ...base, couleurAtout, atoutDefini: true, premierBesiguePose })
+  const state = initialiserChampsIT4({ ...base, couleurAtout, premierBesiguePose })
 
   const annonceAtout: AnnoncePosee = {
     nom: 'mariage_atout', points: 40,
@@ -151,7 +151,7 @@ describe('Non-régression — bésigue reproposition', () => {
 
     // Partir d'un state propre et annoncer via appliquerAnnonce
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
     state = {
       ...state,
       annonces: [
@@ -180,7 +180,7 @@ describe('Non-régression — bésigue reproposition', () => {
     const valetZ = c('diamonds', 'J', 1, 34)
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: 'hearts', atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: 'hearts' })
     state = {
       ...state,
       annonces: [
@@ -291,7 +291,7 @@ describe('Cycle complet — non-reproposition après appliquerAnnonce', () => {
     const dame = c(atout, 'Q', 0, 2)
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
 
     const joueurs = [...state.joueurs] as typeof state.joueurs
     joueurs[0] = { ...joueurs[0], main: [roi, dame], cartesEtalees: [] }
@@ -316,7 +316,7 @@ describe('Cycle complet — non-reproposition après appliquerAnnonce', () => {
     const dameS = c('spades', 'Q', 0, 11)
 
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
-    let state = initialiserChampsIT4({ ...base, couleurAtout: atout, atoutDefini: true })
+    let state = initialiserChampsIT4({ ...base, couleurAtout: atout })
     state = {
       ...state,
       annonces: [
