@@ -80,7 +80,7 @@ const SectionPresentation: React.FC = () => (
  <TitreSection>Victoire de manche</TitreSection>
  <p>
  Le premier joueur à atteindre <strong className="text-white/90">1 000 points</strong> remporte la manche.
- Si son adversaire n'a pas encore <strong className="text-white/90">750 points</strong>, la victoire de manche est dite <em>anbatab</em> et compte double.
+ Si son adversaire n'a pas encore <strong className="text-white/90">750 points</strong>, la victoire de manche est dite <strong className="text-white/90"><em>anbatab</em></strong> et compte double.
  </p>
  
  <TitreSection>La victoire de Cent Points</TitreSection>
