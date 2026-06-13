@@ -77,15 +77,15 @@ const SectionPresentation: React.FC = () => (
  Ce mariage s'appelle le <strong className="text-amber-300">mariage d'atout</strong> et vaut 40 points.
  </p>
 
- <TitreSection>Victoire de manche</TitreSection>
+ <TitreSection>Gain de manche</TitreSection>
  <p>
  Le premier joueur à atteindre <strong className="text-white/90">1 000 points</strong> remporte la manche.
- Si son adversaire n'a pas encore <strong className="text-white/90">750 points</strong>, la victoire de manche est dite <strong className="text-white/90"><em>anbatab</em></strong> et compte double.
+ Si son adversaire n'a pas encore <strong className="text-white/90">750 points</strong>, le gain de la manche est dite <strong className="text-white/90"><em>anbatab</em></strong> et compte double.
  </p>
  
- <TitreSection>La victoire de Cent Points</TitreSection>
+ <TitreSection>La victoire par Cent Points</TitreSection>
  <p>
- Le premier joueur à gagner quatre manches à zéro remporte la victoire dite <strong className="text-white/90"> Cent Points </strong>.
+ Le premier joueur à gagner quatre manches à zéro remporte la victoire dite <strong className="text-white/90"> Cent Points </strong>. Cette victoire est considérée comme le point de départ d'un défi: <strong className="text-white/90">rendre la pareille</strong>.
  </p>
  <p className="text-amber-300/70 italic">
  Le vainqueur est alors salué comme <strong>Le grand Charles Bézigue</strong> en personne!
