@@ -62,7 +62,7 @@ const SectionPresentation: React.FC = () => (
  <div className="space-y-6 text-sm text-white/70 leading-relaxed">
  <TitreSection>Le Bésigue</TitreSection>
  <p>
- Le Bésigue est un jeu de cartes français classique pour 2 joueurs,
+ Le Bésigue est un jeu de cartes haïtien classique pour 2 joueurs,
  joué avec <strong className="text-white/90">4 jeux de 32 cartes + 4 jokers</strong> soit <strong className="text-white/90">132 cartes</strong> au total.
  </p>
  <p>
@@ -74,16 +74,21 @@ const SectionPresentation: React.FC = () => (
  <p>
  Il n'y a <strong className="text-white/90">pas d'atout au départ</strong>. La couleur d'atout est définie
  par le premier joueur qui pose un <em>mariage</em> (Roi + Dame de même couleur).
- Ce mariage s'appelle le <strong className="text-amber-300">mariage_Atout</strong> et vaut 40 points.
+ Ce mariage s'appelle le <strong className="text-amber-300">mariage d'atout</strong> et vaut 40 points.
  </p>
 
- <TitreSection>Victoire</TitreSection>
+ <TitreSection>Victoire de manche</TitreSection>
  <p>
  Le premier joueur à atteindre <strong className="text-white/90">1 000 points</strong> remporte la manche.
- Si son adversaire n'a pas encore <strong className="text-white/90">750 points</strong>, la victoire est <em>en bas de table</em> et compte double.
+ Si son adversaire n'a pas encore <strong className="text-white/90">750 points</strong>, la victoire de manche est dite <em>anbatab</em> et compte double.
+ </p>
+ 
+ <TitreSection>La victoire de Cent Points</TitreSection>
+ <p>
+ Le premier joueur à gagner quatre manches à zéro remporte la victoire dite <strong className="text-white/90"> Cent Points </strong>.
  </p>
  <p className="text-amber-300/70 italic">
- Le vainqueur est alors salué comme <strong>Charles Bézigue</strong> !
+ Le vainqueur est alors salué comme <strong>Le grand Charles Bézigue</strong> en personne!
  </p>
  </div>
 )
