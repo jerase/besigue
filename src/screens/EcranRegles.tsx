@@ -62,7 +62,7 @@ const SectionPresentation: React.FC = () => (
  <div className="space-y-6 text-sm text-white/70 leading-relaxed">
  <TitreSection>Le Bésigue</TitreSection>
  <p>
- Le Bésigue est un jeu de cartes haïtien classique pour 2 joueurs,
+ Le Bésigue est un jeu de cartes français classique pour 2 joueurs,
  joué avec <strong className="text-white/90">4 jeux de 32 cartes + 4 jokers</strong> soit <strong className="text-white/90">132 cartes</strong> au total.
  </p>
  <p>
@@ -74,21 +74,16 @@ const SectionPresentation: React.FC = () => (
  <p>
  Il n'y a <strong className="text-white/90">pas d'atout au départ</strong>. La couleur d'atout est définie
  par le premier joueur qui pose un <em>mariage</em> (Roi + Dame de même couleur).
- Ce mariage s'appelle le <strong className="text-amber-300">mariage d'atout</strong> et vaut 40 points.
+ Ce mariage s'appelle le <strong className="text-amber-300">mariage_Atout</strong> et vaut 40 points.
  </p>
 
- <TitreSection>Gain de manche</TitreSection>
+ <TitreSection>Victoire</TitreSection>
  <p>
  Le premier joueur à atteindre <strong className="text-white/90">1 000 points</strong> remporte la manche.
- Si son adversaire n'a pas encore <strong className="text-white/90">750 points</strong>, le gain de la manche est dite <strong className="text-white/90"><em>anbatab</em></strong> et compte double.
- </p>
- 
- <TitreSection>La victoire par Cent Points</TitreSection>
- <p>
- Le premier joueur à gagner quatre manches à zéro remporte la victoire dite <strong className="text-white/90"> Cent Points </strong>. Cette victoire est considérée comme le point de départ d'un défi: <strong className="text-white/90">rendre la pareille</strong>.
+ Si son adversaire n'a pas encore <strong className="text-white/90">750 points</strong>, la victoire est <em>en bas de table</em> et compte double.
  </p>
  <p className="text-amber-300/70 italic">
- Le vainqueur est alors salué comme <strong>Le grand Charles Bézigue</strong> en personne!
+ Le vainqueur est alors salué comme <strong>Charles Bézigue</strong> !
  </p>
  </div>
 )

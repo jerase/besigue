@@ -13,7 +13,7 @@ const RegleJoker: React.FC<{ regle: string; texte: string }> = ({ regle, texte }
 const ETAPES: Etape[] = [
  { titre: 'Bienvenue au Bésigue', emoji: '🂡', contenu: (
  <div className="space-y-3 text-sm text-white/70">
- <p>Le Bésigue est un jeu de cartes classique haïtien pour <strong className="text-white/90">2 joueurs</strong>.</p>
+ <p>Le Bésigue est un jeu de cartes classique français pour <strong className="text-white/90">2 joueurs</strong>.</p>
  <p>Le jeu utilise <strong className="text-white/90">4 jeux de 32 cartes + 4 jokers = 132 cartes</strong>.</p>
  <p>But : atteindre <strong className="text-amber-300">1 000 points</strong> en remportant des plis et en annonçant des combinaisons.</p>
  </div>
@@ -95,7 +95,7 @@ const ETAPES: Etape[] = [
  <div className="bg-amber-500/10 border border-amber-400/20 rounded-xl p-4 space-y-2">
  <p className="text-amber-300 font-bold">Conseils :</p>
  <p className="text-xs">• Commencez en niveau <strong className="text-white/80">Facile</strong></p>
- <p className="text-xs">• Posez le mariage d'atout dès que possible</p>
+ <p className="text-xs">• Posez le mariage_Atout dès que possible</p>
  <p className="text-xs">• Les cartes étalées restent jouables dans un pli !</p>
  <p className="text-xs">• Le 7 d'atout donne +10 pts quand vous le jouez</p>
  </div>

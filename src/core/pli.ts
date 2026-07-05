@@ -143,29 +143,32 @@ export function cartesJouablesPhaseFinale(
  carteOuverte: Carte | null,
  couleurAtout: Couleur | null
 ): Carte[] {
- if (!carteOuverte) return main.filter(c => !c.estJoker)
+ // Cas particulier : le Joker est la seule carte disponible → toujours jouable
+ const sansJoker = main.filter(c => !c.estJoker)
+ if (sansJoker.length === 0) return main
+
+ if (!carteOuverte) return sansJoker
 
  const couleurOuverte = carteOuverte.estJoker ? null : carteOuverte.couleur
 
- // 1. Essayer de fournir la couleur
+ // 1. Fournir la couleur si possible
  if (couleurOuverte) {
- const memeCouleur = main.filter(c => !c.estJoker && c.couleur === couleurOuverte)
- if (memeCouleur.length > 0) {
- // Parmi celles-ci, couper si possible (carte > carte ouverte)
- const rangOuverte = ORDRE_RANGS[carteOuverte.rang]
- const peutCouper = memeCouleur.filter(c => ORDRE_RANGS[c.rang] > rangOuverte)
- return peutCouper.length > 0 ? peutCouper : memeCouleur
- }
+  const memeCouleur = sansJoker.filter(c => c.couleur === couleurOuverte)
+  if (memeCouleur.length > 0) {
+   const rangOuverte = ORDRE_RANGS[carteOuverte.rang]
+   const peutCouper = memeCouleur.filter(c => ORDRE_RANGS[c.rang] > rangOuverte)
+   return peutCouper.length > 0 ? peutCouper : memeCouleur
+  }
  }
 
- // 2. Sinon, couper à l'atout
+ // 2. Couper à l'atout si couleur absente
  if (couleurAtout) {
- const atouts = main.filter(c => !c.estJoker && c.couleur === couleurAtout)
- if (atouts.length > 0) return atouts
+  const atouts = sansJoker.filter(c => c.couleur === couleurAtout)
+  if (atouts.length > 0) return atouts
  }
 
- // 3. Défausse libre
- return main.filter(c => !c.estJoker)
+ // 3. Défausse libre (sansJoker garanti non-vide ici)
+ return sansJoker
 }
 
 // ============================================================
