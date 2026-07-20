@@ -39,6 +39,7 @@ function makeStateFinale(
     ...state,
     phase: 'finale',
     couleurAtout,
+    joueurActif: 0, // sinon initialiserPartie tire ce champ au hasard
     pliEnCours: {
       carteJoueur0: null,
       carteJoueur1: carteOuverteIA,

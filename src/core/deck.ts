@@ -7,9 +7,9 @@ import type { Carte, Couleur, Deck, Rang } from '../types'
 import { VALEURS_BRISQUES } from '../types'
 
 // 8 rangs × 4 couleurs × 4 jeux = 128 cartes + 4 jokers = 132 cartes
-const COULEURS: Couleur[] = ['spades', 'hearts', 'diamonds', 'clubs']
-const RANGS: Rang[] = ['A', '10', 'K', 'Q', 'J', '9', '8', '7']
-const NB_JEUX = 4
+export const COULEURS: Couleur[] = ['spades', 'hearts', 'diamonds', 'clubs']
+export const RANGS: Rang[] = ['A', '10', 'K', 'Q', 'J', '9', '8', '7']
+export const NB_JEUX = 4
 
 // ============================================================
 // CRÉATION D'UNE CARTE NORMALE

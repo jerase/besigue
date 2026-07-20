@@ -18,6 +18,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { choisirCarteIA } from '../../src/core/ia'
+import { strategieEtaleesEnReponse } from '../../src/core/ia/strategies'
 import { initialiserPartie } from '../../src/core/init'
 import { creerCarte } from '../../src/core/deck'
 import { initialiserChampsIT4 } from '../../src/core/combinaisons'
@@ -153,16 +154,32 @@ describe('Priorité 2 — Autre carte étalée non-atout gagnante', () => {
     it(`[${niveau}] choisit l'étalée gagnante de rang minimal parmi plusieurs`, () => {
       const huitH   = c('hearts', '8')   // ouverte
       const roiHE   = c('hearts', 'K')   // étalé rang 6 → gagne
-      const asHE    = c('hearts', 'A')   // étalé rang 8 → gagne aussi mais plus fort
+      // Un As de même couleur que la carte ouverte est TOUJOURS
+      // prioritaire (Priorité 1 de strategieEtaleesEnReponse), donc on
+      // utilise un Dix (rang 7) pour tester le vrai critère "rang
+      // minimal parmi les gagnantes", sans As pour biaiser le choix.
+      const dixHE   = c('hearts', '10')  // étalé rang 7 → gagne aussi mais plus fort
+      // La main de l'IA ne doit contenir ni carte de rang faible
+      // (7/8/9, sinon strategieAsEtaleesOuEviter s'en empare en premier)
+      // ni carte non-atout (sinon strategieGarderAtouts s'en empare
+      // avant même d'atteindre les étalées) : uniquement un atout.
       const state = makeState({
-        mainIA: [c('diamonds', '7')],
-        etaleesIA: [roiHE, asHE],
+        mainIA: [c('clubs', 'K')],
+        etaleesIA: [roiHE, dixHE],
         carteOuverte: huitH,
         couleurAtout: 'clubs',
       })
       const carte = choisirCarteIA(state, niveau)
-      // Rang minimal gagnant = Roi (rang 6) avant As (rang 8) — économiser
-      expect(carte?.id).toBe(roiHE.id)
+      // Règle b.1 (Phase 2 Difficile, Phase 3 Intermédiaire) : une brisque
+      // (10/As) non-atout gagnante est TOUJOURS prioritaire sur toute
+      // autre carte gagnante, même un Roi de rang ORDRE_RANGS "plus
+      // faible" — capter la brisque prime désormais sur l'économie de rang.
+      if (niveau === 'difficile' || niveau === 'intermediaire') {
+        expect(carte?.id).toBe(dixHE.id)
+      } else {
+        // Rang minimal gagnant = Roi (rang 6) avant Dix (rang 7) — économiser
+        expect(carte?.id).toBe(roiHE.id)
+      }
     })
 
     it(`[${niveau}] n'utilise pas une étalée qui perd le pli`, () => {
@@ -339,10 +356,15 @@ describe('Non-régression — fonctionnalités existantes préservées', () => {
     expect(carte?.id).toBe(asMain.id)
   })
 
-  it('[difficile] pré-atout actif en ouverture même avec étalées', () => {
-    // En ouverture, étalées-réponse inactive → pré-atout prend la main
-    const sept   = c('spades', '7')   // rang faible → pré-atout
-    const asEtal = c('hearts', 'A')   // étalé → inutile en ouverture
+  it('[difficile] règle a.2 : ouvre avec l\'As (même étalé) plutôt que la carte faible, avant l\'atout', () => {
+    // Règle a.2 (Phase 2) : en ouverture, tant que l'atout n'est pas déclaré,
+    // l'IA joue prioritairement un As si elle en a un jouable — ici l'As
+    // étalé de cœur, qui gagne quasi systématiquement (ouvreur favorisé
+    // par les règles de résolution sans atout). Remplace l'ancien
+    // comportement "pré-atout : carte faible" qui ne s'applique plus
+    // que si l'IA n'a aucun As disponible.
+    const sept   = c('spades', '7')   // rang faible → n'est plus prioritaire
+    const asEtal = c('hearts', 'A')   // étalé, jouable → prioritaire (a.2)
     const state = makeState({
       mainIA: [sept, c('clubs', 'K')],
       etaleesIA: [asEtal],
@@ -350,6 +372,77 @@ describe('Non-régression — fonctionnalités existantes préservées', () => {
       couleurAtout: null,   // pré-atout actif
     })
     const carte = choisirCarteIA(state, 'difficile')
-    expect(carte?.id).toBe(sept.id)
+    expect(carte?.id).toBe(asEtal.id)
+  })
+})
+
+// ============================================================
+// 5. strategieEtaleesEnReponse — TESTS UNITAIRES DIRECTS
+//
+// Dans le pipeline complet (choisirCarteIA), strategieGarderAtouts est
+// TOUJOURS appelée avant strategieEtaleesEnReponse, pour les 3 niveaux
+// d'IA. Or strategieGarderAtouts ne laisse la main à la suite que si
+// AUCUN candidat n'est non-atout (main + étalées), alors que
+// strategieEtaleesEnReponse a justement besoin d'au moins une étalée
+// GAGNANTE non-atout pour s'appliquer. Sa "Priorité 2" (rang minimal,
+// sans As de la couleur ouverte) est donc inatteignable via le pipeline
+// complet : on la teste ici directement, en isolation, comme le
+// permet son statut de fonction exportée.
+// ============================================================
+
+describe('strategieEtaleesEnReponse — tests unitaires directs (isolation)', () => {
+  function makeStateDirect(opts: {
+    etaleesIA: Carte[]
+    carteOuverte: Carte
+    couleurAtout: Couleur | null
+  }): GameState {
+    const { state } = initialiserPartie(CONFIG_DEFAUT)
+    const base = initialiserChampsIT4({
+      ...state,
+      couleurAtout: opts.couleurAtout,
+      pliEnCours: { carteJoueur0: opts.carteOuverte, carteJoueur1: null, joueurOuvreur: 0 },
+    })
+    const joueurs = [...base.joueurs] as typeof base.joueurs
+    joueurs[1] = { ...joueurs[1], main: [], cartesEtalees: opts.etaleesIA }
+    return { ...base, joueurs }
+  }
+
+  it('Priorité 2 : sans As de la couleur ouverte, choisit l\'étalée gagnante de rang minimal', () => {
+    const huitH = c('hearts', '8')
+    const roiHE = c('hearts', 'K')   // rang 6 → gagne, le plus faible
+    const dixHE = c('hearts', '10')  // rang 7 → gagne aussi mais plus fort
+    const state = makeStateDirect({
+      etaleesIA: [roiHE, dixHE],
+      carteOuverte: huitH,
+      couleurAtout: 'clubs',
+    })
+    const candidats = [roiHE, dixHE]
+    const carte = strategieEtaleesEnReponse(candidats, state)
+    expect(carte?.id).toBe(roiHE.id)
+  })
+
+  it('Priorité 2 : une seule étalée gagnante non-As → elle est choisie', () => {
+    const septS = c('spades', '7')
+    const dameSE = c('spades', 'Q')  // gagne (rang > 7)
+    const state = makeStateDirect({
+      etaleesIA: [dameSE],
+      carteOuverte: septS,
+      couleurAtout: 'clubs',
+    })
+    const candidats = [dameSE]
+    const carte = strategieEtaleesEnReponse(candidats, state)
+    expect(carte?.id).toBe(dameSE.id)
+  })
+
+  it('retourne null si aucune étalée gagnante disponible', () => {
+    const asS = c('spades', 'A')     // très fort, rien ne bat
+    const roiSE = c('spades', 'K')   // ne gagne pas
+    const state = makeStateDirect({
+      etaleesIA: [roiSE],
+      carteOuverte: asS,
+      couleurAtout: 'clubs',
+    })
+    const carte = strategieEtaleesEnReponse([roiSE], state)
+    expect(carte).toBeNull()
   })
 })

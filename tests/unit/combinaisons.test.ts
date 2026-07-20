@@ -417,6 +417,45 @@ describe('Réutilisation des cartes', () => {
     expect(combis2.some(c => c.nom === '4_roi')).toBe(true)
   })
 
+  it('poser les 2 combinaisons partageant une carte cumule bien les points et les usages', () => {
+    // On pose réellement le mariage_Atout PUIS le carré de rois : le Roi♥
+    // (carte partagée) doit alors apparaître dans usagesCartes avec les
+    // 2 noms de combinaison, et les points des deux annonces s'additionnent.
+    const atout: Couleur = 'hearts'
+    const roiH = c(atout, 'K', 0, 1)
+    let state = stateAvecMain([
+      roiH,
+      c(atout, 'Q', 0, 2),
+      c('spades', 'K', 0, 10),
+      c('diamonds', 'K', 0, 11),
+      c('clubs', 'K', 0, 12),
+    ], 0, { couleurAtout: atout })
+
+    const mariage = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === 'mariage_atout')!
+    state = appliquerAnnonce(state, 0, mariage)
+    const scoreApresMariage = state.joueurs[0].marquePoints
+    expect(scoreApresMariage).toBe(40)
+
+    const carre = detecterCombinaisonsDisponibles(state, 0).find(c => c.nom === '4_roi')!
+    expect(carre).toBeDefined()
+    state = appliquerAnnonce(state, 0, carre)
+
+    // Les points des deux annonces se cumulent
+    expect(state.joueurs[0].marquePoints).toBe(scoreApresMariage + carre.points)
+
+    // Le Roi♥ (carte partagée) référence bien les 2 combinaisons dans usagesCartes
+    const usageRoiH = state.usagesCartes.find(u => u.carteId === roiH.id)
+    expect(usageRoiH).toBeDefined()
+    expect(usageRoiH!.combinaisonsUtilisees).toEqual(
+      expect.arrayContaining(['mariage_atout', '4_roi'])
+    )
+    expect(usageRoiH!.combinaisonsUtilisees).toHaveLength(2)
+
+    // Le Roi♥ reste étalé une seule fois (pas de doublon)
+    const occurrences = state.joueurs[0].cartesEtalees.filter(c => c.id === roiH.id)
+    expect(occurrences).toHaveLength(1)
+  })
+
   it('la même paire (Roi+Dame) ne peut PAS reformer le même mariage', () => {
     const roi = c('hearts', 'K', 0, 1)
     const dame = c('hearts', 'Q', 0, 2)

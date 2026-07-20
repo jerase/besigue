@@ -3,7 +3,7 @@
 // Tirage premier joueur, distribution, pioche, marque_points
 // ============================================================
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   tirerPremierJoueur,
   creerJoueur,
@@ -12,7 +12,7 @@ import {
   ajouterPoints,
   sauvegardeExiste,
 } from '../../src/core/init'
-import { creerDeck, melangerFisherYates } from '../../src/core/deck'
+import { creerDeck, melangerFisherYates, creerCarte } from '../../src/core/deck'
 import { CONFIG_DEFAUT } from '../../src/types'
 import type { GameConfig, GameState, Carte } from '../../src/types'
 
@@ -74,6 +74,23 @@ describe('tirerPremierJoueur', () => {
     expect([0, 1]).toContain(premierJoueur)
     // egalite indique si au moins une égalité est survenue
     expect(typeof egalite).toBe('boolean')
+  })
+
+  it('épuisement du nombre max de tentatives (égalité perpétuelle) → J0 désigné par défaut', () => {
+    // Un paquet où TOUTES les cartes ont le même rang garantit une égalité
+    // à chaque tentative, quel que soit le mélange : le tirage épuise donc
+    // ses MAX_TENTATIVES relances et retombe sur le comportement de secours
+    // (J0 désigné par défaut, egalite=true).
+    const couleurs: Carte['couleur'][] = ['hearts', 'diamonds', 'clubs', 'spades']
+    const pool: Carte[] = []
+    for (let i = 0; i < 44; i++) {
+      pool.push(creerCarte(couleurs[i % 4], 'K', 0, i))
+    }
+    const { premierJoueur, egalite, carteJ0, carteJ1 } = tirerPremierJoueur(pool)
+    expect(premierJoueur).toBe(0)
+    expect(egalite).toBe(true)
+    expect(carteJ0).toBeDefined()
+    expect(carteJ1).toBeDefined()
   })
 })
 
@@ -300,6 +317,39 @@ describe('ajouterPoints', () => {
     let s = ajouterPoints(state, 0, 50)
     s = ajouterPoints(s, 0, -200)
     expect(s.joueurs[0].marquePoints).toBe(0)
+  })
+})
+
+// ============================================================
+// SAUVEGARDE (localStorage)
+// ============================================================
+
+describe('sauvegardeExiste (init.ts)', () => {
+  const KEY = 'besigue_save'
+
+  beforeEach(() => {
+    localStorage.removeItem(KEY)
+  })
+
+  it('retourne false si aucune sauvegarde n\'existe', () => {
+    expect(sauvegardeExiste()).toBe(false)
+  })
+
+  it('retourne true si une sauvegarde existe', () => {
+    localStorage.setItem(KEY, '{}')
+    expect(sauvegardeExiste()).toBe(true)
+    localStorage.removeItem(KEY)
+  })
+
+  it('retourne false si localStorage lève une exception', () => {
+    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('accès refusé')
+    })
+    try {
+      expect(sauvegardeExiste()).toBe(false)
+    } finally {
+      spy.mockRestore()
+    }
   })
 })
 

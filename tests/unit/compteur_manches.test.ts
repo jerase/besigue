@@ -26,6 +26,14 @@ const c = (couleur: Couleur, rang: Carte['rang'], jeu = 0, pos = 0) =>
  * scoreJ0 / scoreJ1 : points de jeu (sur 1000)
  * brisquesJ0 / brisquesJ1 : nombre de brisques dans chaque pile
  * compteurManches : compteur de manches existant (défaut [0, 0])
+ *
+ * NOTE sur le duo (800, 960, 20, 5) utilisé comme "victoire normale" :
+ * calculerBrisques attribue au vainqueur des brisques +brisques*10 et
+ * inflige au perdant -200 (si son score >= 200). Avec (800, 300) le
+ * perdant tombe à 100 < 750, ce qui déclenche À TORT "en bas de table"
+ * (Charles Bézigue, gain +2). Le duo (800, 960) laisse le perdant à
+ * 760 après pénalité, donc bien au-dessus du seuil de 750 : la manche
+ * reste "normale" (gain +1), ce qui est l'intention de ces tests.
  */
 function makeEtatFinManche(
   scoreJ0: number,
@@ -77,7 +85,7 @@ describe('Manche sans vainqueur (< 1000 pts)', () => {
 describe('Vainqueur de manche : compteur +1, adversaire → 0', () => {
   it('J0 gagne la première manche : compteur [1, 0]', () => {
     // J0 : 800 pts + 20 brisques × 10 = 1000 ; J1 : 300 pts
-    const state = makeEtatFinManche(800, 300, 20, 5, [0, 0])
+    const state = makeEtatFinManche(800, 960, 20, 5, [0, 0])
     const r = appliquerFinManche(state)
     expect(r.vainqueurManche).toBe(0)
     expect(r.compteurManches[0]).toBe(1)
@@ -86,7 +94,7 @@ describe('Vainqueur de manche : compteur +1, adversaire → 0', () => {
 
   it('J1 gagne la première manche : compteur [0, 1]', () => {
     // J1 : 800 pts + 20 brisques × 10 = 1000 ; J0 : 300 pts
-    const state = makeEtatFinManche(300, 800, 5, 20, [0, 0])
+    const state = makeEtatFinManche(960, 800, 5, 20, [0, 0])
     const r = appliquerFinManche(state)
     expect(r.vainqueurManche).toBe(1)
     expect(r.compteurManches[0]).toBe(0)
@@ -94,21 +102,21 @@ describe('Vainqueur de manche : compteur +1, adversaire → 0', () => {
   })
 
   it('J0 gagne une 2e manche : compteur [2, 0]', () => {
-    const state = makeEtatFinManche(800, 300, 20, 5, [1, 0])
+    const state = makeEtatFinManche(800, 960, 20, 5, [1, 0])
     const r = appliquerFinManche(state)
     expect(r.compteurManches).toEqual([2, 0])
   })
 
   it('J1 gagne après J0 : adversaire remis à 0 → compteur [0, 1]', () => {
     // J0 avait 2 manches, J1 gagne → J0 revient à 0
-    const state = makeEtatFinManche(300, 800, 5, 20, [2, 0])
+    const state = makeEtatFinManche(960, 800, 5, 20, [2, 0])
     const r = appliquerFinManche(state)
     expect(r.vainqueurManche).toBe(1)
     expect(r.compteurManches).toEqual([0, 1])
   })
 
   it('si J0 avait 3 manches et J1 gagne, J0 revient à 0', () => {
-    const state = makeEtatFinManche(300, 800, 5, 20, [3, 0])
+    const state = makeEtatFinManche(960, 800, 5, 20, [3, 0])
     const r = appliquerFinManche(state)
     expect(r.compteurManches).toEqual([0, 1])
   })
@@ -130,8 +138,9 @@ describe('Charles Bézigue de manche (en bas de table) : +2 points de manche', (
   })
 
   it('vainqueur normal (adversaire ≥ 750) : +1 seulement', () => {
-    // J1 a 800 pts ≥ 750 → pas en bas de table
-    const state = makeEtatFinManche(800, 800, 20, 5, [0, 0])
+    // J1 a 960 pts ; après la pénalité de brisques (-200, J0 ayant plus
+    // de brisques) il reste à 760 ≥ 750 → pas en bas de table
+    const state = makeEtatFinManche(800, 960, 20, 5, [0, 0])
     // J0 gagne car plus de brisques
     const r = appliquerFinManche(state)
     expect(r.enBasTable).toBe(false)
@@ -181,7 +190,7 @@ describe('Victoire de partie (4-0) — Cent Points', () => {
   })
 
   it('J0 à 3 manches mais J1 gagne la manche : pas de victoire de partie', () => {
-    const state = makeEtatFinManche(300, 800, 5, 20, [3, 0])
+    const state = makeEtatFinManche(960, 800, 5, 20, [3, 0])
     const r = appliquerFinManche(state)
     // J1 gagne la manche → J0 remis à 0, J1 à 1
     expect(r.vainqueurManche).toBe(1)
@@ -202,7 +211,7 @@ describe('Victoire de partie (4-0) — Cent Points', () => {
 
   it('victoire 3 manches normales + 1 Charles Bézigue (total 4) : centPoints', () => {
     // J0 avait 3 manches (normales), gagne encore normalement → 4 → victoire
-    const state = makeEtatFinManche(800, 300, 20, 5, [3, 0])
+    const state = makeEtatFinManche(800, 960, 20, 5, [3, 0])
     const r = appliquerFinManche(state)
     expect(r.enBasTable).toBe(false) // J1 > 750
     expect(r.compteurManches[0]).toBe(4)
@@ -212,7 +221,7 @@ describe('Victoire de partie (4-0) — Cent Points', () => {
 
   it('si adversaire a 1 point et vainqueur atteint 4 : PAS de victoire (adversaire ≠ 0)', () => {
     // J0 a 4 manches mais J1 a 1 → pas 4-0 → pas de victoire
-    const state = makeEtatFinManche(800, 300, 20, 5, [4, 1])
+    const state = makeEtatFinManche(800, 960, 20, 5, [4, 1])
     // Ce cas ne devrait pas arriver en jeu normal mais testons la robustesse
     const r = appliquerFinManche(state)
     // J0 gagne la manche, adversaire (J1) revient à 0
@@ -229,7 +238,7 @@ describe('Victoire de partie (4-0) — Cent Points', () => {
 
 describe('Persistence du compteur de manches entre les manches', () => {
   it('initialiserNouvelleManche préserve le compteur (manche avec vainqueur)', () => {
-    const state = makeEtatFinManche(800, 300, 20, 5, [1, 0])
+    const state = makeEtatFinManche(800, 960, 20, 5, [1, 0])
     const r = appliquerFinManche(state)
     expect(r.compteurManches).toEqual([2, 0])
 
@@ -238,7 +247,7 @@ describe('Persistence du compteur de manches entre les manches', () => {
   })
 
   it('nouvelle manche avec vainqueur : scores remis à 0, compteur conservé', () => {
-    const state = makeEtatFinManche(800, 300, 20, 5, [2, 0])
+    const state = makeEtatFinManche(800, 960, 20, 5, [2, 0])
     const r = appliquerFinManche(state)
     const newState = initialiserNouvelleManche(r.state, CONFIG_DEFAUT, r.vainqueurManche)
 
@@ -255,22 +264,22 @@ describe('Persistence du compteur de manches entre les manches', () => {
   })
 
   it('scénario complet 4 manches : J0 gagne la partie', () => {
-    let s = makeEtatFinManche(800, 300, 20, 5, [0, 0])
+    let s = makeEtatFinManche(800, 960, 20, 5, [0, 0])
     let r = appliquerFinManche(s)
     expect(r.compteurManches).toEqual([1, 0])
     expect(r.vainqueurPartie).toBeNull()
 
-    s = makeEtatFinManche(800, 300, 20, 5, r.compteurManches)
+    s = makeEtatFinManche(800, 960, 20, 5, r.compteurManches)
     r = appliquerFinManche(s)
     expect(r.compteurManches).toEqual([2, 0])
     expect(r.vainqueurPartie).toBeNull()
 
-    s = makeEtatFinManche(800, 300, 20, 5, r.compteurManches)
+    s = makeEtatFinManche(800, 960, 20, 5, r.compteurManches)
     r = appliquerFinManche(s)
     expect(r.compteurManches).toEqual([3, 0])
     expect(r.vainqueurPartie).toBeNull()
 
-    s = makeEtatFinManche(800, 300, 20, 5, r.compteurManches)
+    s = makeEtatFinManche(800, 960, 20, 5, r.compteurManches)
     r = appliquerFinManche(s)
     expect(r.compteurManches).toEqual([4, 0])
     expect(r.vainqueurPartie).toBe(0)
@@ -278,27 +287,27 @@ describe('Persistence du compteur de manches entre les manches', () => {
   })
 
   it('scénario avec échange de manches avant victoire', () => {
-    let s = makeEtatFinManche(800, 300, 20, 5, [0, 0])
+    let s = makeEtatFinManche(800, 960, 20, 5, [0, 0])
     let r = appliquerFinManche(s)
     expect(r.compteurManches).toEqual([1, 0])
 
-    s = makeEtatFinManche(300, 800, 5, 20, r.compteurManches)
+    s = makeEtatFinManche(960, 800, 5, 20, r.compteurManches)
     r = appliquerFinManche(s)
     expect(r.compteurManches).toEqual([0, 1])
 
-    s = makeEtatFinManche(800, 300, 20, 5, r.compteurManches)
+    s = makeEtatFinManche(800, 960, 20, 5, r.compteurManches)
     r = appliquerFinManche(s)
     expect(r.compteurManches).toEqual([1, 0])
 
-    s = makeEtatFinManche(800, 300, 20, 5, r.compteurManches)
+    s = makeEtatFinManche(800, 960, 20, 5, r.compteurManches)
     r = appliquerFinManche(s)
     expect(r.compteurManches).toEqual([2, 0])
 
-    s = makeEtatFinManche(800, 300, 20, 5, r.compteurManches)
+    s = makeEtatFinManche(800, 960, 20, 5, r.compteurManches)
     r = appliquerFinManche(s)
     expect(r.compteurManches).toEqual([3, 0])
 
-    s = makeEtatFinManche(800, 300, 20, 5, r.compteurManches)
+    s = makeEtatFinManche(800, 960, 20, 5, r.compteurManches)
     r = appliquerFinManche(s)
     expect(r.compteurManches).toEqual([4, 0])
     expect(r.vainqueurPartie).toBe(0)
@@ -424,7 +433,7 @@ describe('Conservation des scores entre les manches (sans vainqueur)', () => {
 describe('Seuil 1000 pts atteint en cours de manche (via annonces)', () => {
   it('J0 exactement à 1000 pts → vainqueurManche = 0', () => {
     // Score atteint via annonces, brisques à 0 pour isoler
-    const state = makeEtatFinManche(1000, 400, 0, 0, [0, 0])
+    const state = makeEtatFinManche(1000, 600, 0, 0, [0, 0])
     const r = appliquerFinManche(state)
     expect(r.vainqueurManche).toBe(0)
     expect(r.compteurManches[0]).toBe(1)
@@ -432,7 +441,7 @@ describe('Seuil 1000 pts atteint en cours de manche (via annonces)', () => {
   })
 
   it('J1 exactement à 1000 pts → vainqueurManche = 1', () => {
-    const state = makeEtatFinManche(400, 1000, 0, 0, [0, 0])
+    const state = makeEtatFinManche(600, 1000, 0, 0, [0, 0])
     const r = appliquerFinManche(state)
     expect(r.vainqueurManche).toBe(1)
     expect(r.compteurManches[0]).toBe(0)
@@ -440,7 +449,7 @@ describe('Seuil 1000 pts atteint en cours de manche (via annonces)', () => {
   })
 
   it('J0 dépasse 1000 pts (ex: 1040 via annonce) → vainqueurManche = 0', () => {
-    const state = makeEtatFinManche(1040, 300, 0, 0, [0, 0])
+    const state = makeEtatFinManche(1040, 600, 0, 0, [0, 0])
     const r = appliquerFinManche(state)
     expect(r.vainqueurManche).toBe(0)
     expect(r.compteurManches[0]).toBe(1)
@@ -457,7 +466,7 @@ describe('Seuil 1000 pts atteint en cours de manche (via annonces)', () => {
   })
 
   it('seuil atteint → compteur préservé pour la nouvelle manche', () => {
-    const state = makeEtatFinManche(1000, 400, 0, 0, [2, 0])
+    const state = makeEtatFinManche(1000, 600, 0, 0, [2, 0])
     const r = appliquerFinManche(state)
     expect(r.compteurManches).toEqual([3, 0])
 
@@ -466,8 +475,8 @@ describe('Seuil 1000 pts atteint en cours de manche (via annonces)', () => {
   })
 
   it('seuil atteint en bas de table (< 750) → Charles Bézigue +2', () => {
-    // J0 = 1000, J1 = 600 < 750 → en bas de table
-    const state = makeEtatFinManche(1000, 600, 0, 0, [1, 0])
+    // J0 = 1000, J1 = 500 < 750 → en bas de table
+    const state = makeEtatFinManche(1000, 500, 0, 0, [1, 0])
     const r = appliquerFinManche(state)
     expect(r.vainqueurManche).toBe(0)
     expect(r.enBasTable).toBe(true)
@@ -477,7 +486,7 @@ describe('Seuil 1000 pts atteint en cours de manche (via annonces)', () => {
   })
 
   it('seuil atteint → victoire de partie si compteur atteint 4-0', () => {
-    const state = makeEtatFinManche(1000, 400, 0, 0, [3, 0])
+    const state = makeEtatFinManche(1000, 600, 0, 0, [3, 0])
     const r = appliquerFinManche(state)
     expect(r.vainqueurManche).toBe(0)
     expect(r.vainqueurPartie).toBe(0)
@@ -496,6 +505,12 @@ describe('Seuil 1000 pts atteint en cours de manche (via annonces)', () => {
     const r = appliquerFinManche(state)
     // score J0 >= score J1 → J0
     expect(r.vainqueurManche).toBe(0)
+  })
+
+  it('les deux joueurs à 1000 pts, J1 a le score le plus haut → J1 gagne', () => {
+    const state = makeEtatFinManche(1000, 1050, 0, 0, [0, 0])
+    const r = appliquerFinManche(state)
+    expect(r.vainqueurManche).toBe(1) // J1 a plus de points
   })
 })
 

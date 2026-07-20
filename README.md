@@ -56,10 +56,21 @@ faithful to the **Haitian version** of the game.
 
 ### Intelligence Artificielle
 - 🤖 **3 niveaux** : Facile, Intermédiaire, Difficile
-- 🧠 Stratégies avancées : mémorisation des cartes vues, gestion du score de
-  partie, préservation des atouts, protection des combinaisons par priorité
+- 🧠 **Mémorisation par déduction** (Intermédiaire/Difficile) : l'IA déduit
+  avec certitude l'ensemble des cartes non encore jouées (pioche + main
+  adverse confondues), Jokers inclus — jamais par lecture directe de
+  l'état caché
+- 🎯 **Anticipation** : objectif de 16 brisques (majorité garantie en fin
+  de manche) avec repli automatique sur la maximisation du score si
+  l'objectif devient mathématiquement hors de portée ; protection des
+  combinaisons limitée à celles encore réellement atteignables
+- ♟️ **Règles tactiques avancées** : capture prioritaire des brisques
+  gagnantes, ouverture par l'As avant l'atout (coup quasi imparable),
+  séquencement As/Jokers avant l'annonce d'un mariage, ouverture par la
+  couleur la plus épuisée en brisques une fois l'atout déclaré
 - 🎲 Variation de style en niveau difficile (anti-prévisibilité)
-- 🃏 Stratégies pré-atout, couper le 10 et l'As, gestion des étalées
+- 🃏 Stratégies pré-atout, couper le 10 et l'As, gestion des étalées,
+  gestion du score de partie (modes prudent / agressif)
 
 ### Interface
 - 📱 Responsive : desktop et mobile
@@ -154,8 +165,19 @@ besigue/
 │   ├── core/           # Moteur de jeu pur (logique métier)
 │   │   ├── combinaisons.ts   # Détection des 14 combinaisons
 │   │   ├── finManche.ts      # Calcul fin de manche, brisques, victoire
-│   │   ├── ia.ts             # Intelligence artificielle (3 niveaux)
+│   │   ├── ia.config.ts      # Seuils et probabilités de l'IA
+│   │   ├── ia/                # Intelligence artificielle (3 niveaux)
+│   │   │   ├── index.ts            # Point d'entrée (choisirCarteIA, délais)
+│   │   │   ├── niveau-facile.ts     # Facile : heuristiques + erreurs volontaires
+│   │   │   ├── niveau-intermediaire.ts  # Intermédiaire : + règles A/B allégées
+│   │   │   ├── niveau-difficile.ts      # Difficile : + règles A/B complètes
+│   │   │   ├── strategies.ts        # Stratégies communes (couper10, pré-atout…)
+│   │   │   ├── strategies-avancees.ts   # Règles A/B (mémorisation + anticipation)
+│   │   │   ├── memoire.ts           # Comptage de cartes par déduction
+│   │   │   ├── anticipation.ts      # Objectif de 16 brisques
+│   │   │   └── helpers.ts           # Protection des combinaisons potentielles
 │   │   ├── init.ts           # Initialisation des parties et manches
+│   │   ├── deck.ts           # Création et mélange du deck
 │   │   └── pli.ts            # Règles du pli (libre et finale)
 │   ├── hooks/
 │   │   └── useGameEngine.ts  # Orchestrateur React de l'état du jeu
@@ -194,6 +216,7 @@ npm test -- tests/unit/ia_*.test.ts  # Tests IA uniquement
 - ✅ Fin de manche (brisques, en bas table, Charles Bézigue)
 - ✅ Compteur de manches et victoire de partie (Cent Points)
 - ✅ Intelligence artificielle (tous niveaux, toutes stratégies)
+- ✅ Mémorisation par déduction et objectif de 16 brisques (Intermédiaire/Difficile)
 - ✅ Persistence et sauvegarde
 - ✅ Phase finale (rapatriement des étalées)
 

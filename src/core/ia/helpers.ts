@@ -3,9 +3,10 @@
 // Fonctions pures sans dépendance vers les niveaux ou stratégies.
 // ============================================================
 
-import type { Carte, GameState, Couleur } from '../../types'
+import type { Carte, GameState, Couleur, Rang } from '../../types'
 import { ORDRE_RANGS, VALEURS_BRISQUES } from '../../types'
 import { resoudrePli } from '../pli'
+import { combinaisonEncoreAtteignable } from './memoire'
 
 // ── Valeur brisque ────────────────────────────────────────────
 
@@ -75,6 +76,13 @@ export function aPremierBesigueAnnonce(state: GameState, joueurId: 0 | 1): boole
  *
  * Bésigue déjà annoncé :
  *   mariage_atout > quinte > 4_as > 4_rois > 4_dames > 4_valets > besigue_suivant
+ *
+ * Raffinement mémorisation : pour les combinaisons encore incomplètes
+ * (carrés à 3 cartes/4, quinte pièce par pièce), la protection n'est
+ * accordée que si la pièce manquante existe encore quelque part
+ * (pioche ou main adverse) — via combinaisonEncoreAtteignable(). Une
+ * combinaison mathématiquement impossible à compléter (toutes les
+ * copies restantes déjà vues ailleurs) n'est plus protégée inutilement.
  */
 export function cartesUtilesAuxCombis(state: GameState, joueurId: 0 | 1): Set<string> {
   const utiles = new Set<string>()
@@ -99,9 +107,20 @@ export function cartesUtilesAuxCombis(state: GameState, joueurId: 0 | 1): Set<st
 
   // Priorité 2 : Quinte (pièces manquantes)
   if (couleurAtout && mariageAnnonce) {
-    main.filter(c => c.couleur === couleurAtout && c.rang === 'A').forEach(c => utiles.add(c.id))
-    main.filter(c => c.couleur === couleurAtout && c.rang === '10').forEach(c => utiles.add(c.id))
-    main.filter(c => c.couleur === couleurAtout && c.rang === 'J').forEach(c => utiles.add(c.id))
+    const rangsQuinte: Rang[] = ['A', '10', 'J']
+    const quinteAtteignable = rangsQuinte.every(rang => {
+      const presente = main.filter(c => c.couleur === couleurAtout && c.rang === rang).length
+      return combinaisonEncoreAtteignable(
+        state,
+        { rang, couleur: couleurAtout, quantiteRequise: 1, quantitePresente: presente },
+        joueurId
+      )
+    })
+    if (quinteAtteignable) {
+      main.filter(c => c.couleur === couleurAtout && c.rang === 'A').forEach(c => utiles.add(c.id))
+      main.filter(c => c.couleur === couleurAtout && c.rang === '10').forEach(c => utiles.add(c.id))
+      main.filter(c => c.couleur === couleurAtout && c.rang === 'J').forEach(c => utiles.add(c.id))
+    }
   } else if (couleurAtout) {
     const asAtout    = toutes.filter(c => c.couleur === couleurAtout && c.rang === 'A')
     const dixAtout   = toutes.filter(c => c.couleur === couleurAtout && c.rang === '10')
@@ -113,9 +132,14 @@ export function cartesUtilesAuxCombis(state: GameState, joueurId: 0 | 1): Set<st
     }
   }
 
-  // Priorité 3 : 4 As (3+ en main/étalées)
+  // Priorité 3 : 4 As (3+ en main/étalées, et le 4e doit rester atteignable)
   const tousAs = toutes.filter(c => c.rang === 'A')
-  if (tousAs.length >= 3) tousAs.forEach(c => utiles.add(c.id))
+  if (
+    tousAs.length >= 3 &&
+    combinaisonEncoreAtteignable(state, { rang: 'A', quantiteRequise: 4, quantitePresente: tousAs.length }, joueurId)
+  ) {
+    tousAs.forEach(c => utiles.add(c.id))
+  }
 
   // Priorité 4 : Premier bésigue (Dame♠ + Valet♦) si non encore annoncé
   if (!besigueAnnonce) {
@@ -127,17 +151,32 @@ export function cartesUtilesAuxCombis(state: GameState, joueurId: 0 | 1): Set<st
     }
   }
 
-  // Priorité 5 : 4 Rois
+  // Priorité 5 : 4 Rois (le 4e doit rester atteignable)
   const tousRois = toutes.filter(c => c.rang === 'K')
-  if (tousRois.length >= 3) tousRois.forEach(c => utiles.add(c.id))
+  if (
+    tousRois.length >= 3 &&
+    combinaisonEncoreAtteignable(state, { rang: 'K', quantiteRequise: 4, quantitePresente: tousRois.length }, joueurId)
+  ) {
+    tousRois.forEach(c => utiles.add(c.id))
+  }
 
-  // Priorité 6 : 4 Dames
+  // Priorité 6 : 4 Dames (la 4e doit rester atteignable)
   const toutesDames = toutes.filter(c => c.rang === 'Q')
-  if (toutesDames.length >= 3) toutesDames.forEach(c => utiles.add(c.id))
+  if (
+    toutesDames.length >= 3 &&
+    combinaisonEncoreAtteignable(state, { rang: 'Q', quantiteRequise: 4, quantitePresente: toutesDames.length }, joueurId)
+  ) {
+    toutesDames.forEach(c => utiles.add(c.id))
+  }
 
-  // Priorité 7 : 4 Valets
+  // Priorité 7 : 4 Valets (le 4e doit rester atteignable)
   const tousValets = toutes.filter(c => c.rang === 'J')
-  if (tousValets.length >= 3) tousValets.forEach(c => utiles.add(c.id))
+  if (
+    tousValets.length >= 3 &&
+    combinaisonEncoreAtteignable(state, { rang: 'J', quantiteRequise: 4, quantitePresente: tousValets.length }, joueurId)
+  ) {
+    tousValets.forEach(c => utiles.add(c.id))
+  }
 
   // Priorité 8 : Bésigue suivant (si 1er déjà annoncé)
   if (besigueAnnonce) {

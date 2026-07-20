@@ -30,6 +30,27 @@ let _pos = 0
 const c = (couleur: Couleur, rang: Carte['rang'], jeu = 0): Carte =>
   creerCarte(couleur, rang, jeu, _pos++)
 
+/**
+ * Génère N brisques (As/10, toutes couleurs, jusqu'à 4 jeux chacune) —
+ * utile pour simuler, côté mémorisation, un état où peu de brisques
+ * restent non vues (remplace le seuil de pioche pour les évolutions 2/4
+ * quand IA_MEMOIRE_AVANCEE.intermediaire est actif).
+ */
+function nBrisques(n: number): Carte[] {
+  const couleurs: Couleur[] = ['spades', 'hearts', 'diamonds', 'clubs']
+  const rangs: Carte['rang'][] = ['A', '10']
+  const cartes: Carte[] = []
+  for (const couleur of couleurs) {
+    for (const rang of rangs) {
+      for (let jeu = 0; jeu < 4; jeu++) {
+        if (cartes.length >= n) return cartes
+        cartes.push(c(couleur, rang, jeu))
+      }
+    }
+  }
+  return cartes
+}
+
 function makeState(opts: {
   mainIA: Carte[]
   etaleesIA?: Carte[]
@@ -110,12 +131,12 @@ describe("Évolution 1 — Couper l'As adverse avec atout", () => {
       couleurAtout: 'clubs',
     })
     // Pas d'atout ne bat un As d'atout → fallback
-    // L'IA ne doit PAS jouer d'atout pour "couper" (ce serait une perte)
+    // L'IA ne doit PAS jouer l'As ni la carte de rang le plus fort ;
+    // la défausse choisit la carte de rang minimal (8 de trèfle < 9 de
+    // cœur), sans logique de préservation spécifique des atouts.
     const carte = choisirCarteIA(state, 'intermediaire')
     expect(carte).not.toBeNull()
-    // La carte jouée ne doit pas être un atout (aucun ne gagne)
-    // → défausse intelligente
-    expect(carte?.couleur).not.toBe('clubs')
+    expect(carte?.id).toBe(autreAtout.id)
   })
 
   it("ne s'applique pas si l'atout n'est pas encore défini", () => {
@@ -221,6 +242,14 @@ describe('Évolution 2 — Pioche adaptative', () => {
     const carte = choisirCarteIA(state, 'intermediaire')
     expect(carte).not.toBeNull()
   })
+
+  // Note : impossible d'isoler proprement ici une différenciation agressif/safe
+  // pilotée par la mémorisation, comme fait pour l'Évolution 4 (bloc ouverture).
+  // Toute carte ouverte "brisque" (A ou 10) non-atout est déjà interceptée en
+  // amont par strategieCouper10 (rang 10) ou l'Évolution 1 "couper l'As adverse"
+  // (rang A) — un ordre de cascade préexistant, avant même d'atteindre ce bloc.
+  // La bascule agressif/safe pilotée par memoire.ts est néanmoins vérifiée de
+  // façon non ambiguë via l'Évolution 4 ci-dessous (bloc ouverture, non intercepté).
 })
 
 // ============================================================
@@ -231,9 +260,11 @@ describe("Évolution 3 — Sept d'atout en ouverture (pioche > 8)", () => {
 
   it("joue le 7 d'atout en ouverture si pioche grande", () => {
     const septAtout = c('clubs', '7')
-    const roiH      = c('hearts', 'K')
+    const roiAtout  = c('clubs', 'K')  // atout aussi : sinon strategieGarderAtouts
+                                        // (stratégie commune) jouerait en priorité
+                                        // une carte non-atout
     const state = makeState({
-      mainIA: [septAtout, roiH, c('spades', '9')],
+      mainIA: [septAtout, roiAtout],
       couleurAtout: 'clubs',
       nbPioche: SEUIL_PIOCHE_GRANDE + 1,
     })
@@ -288,13 +319,19 @@ describe('Évolution 4 — Bloquer les mariages adverses (pioche ≤ 4)', () => 
   it('joue le Roi si humain a Dame de même couleur étalée', () => {
     const dameHumain = c('spades', 'Q')
     const roiIA      = c('spades', 'K') // non-utile pour l'IA
-    const autreIA    = c('clubs', '8')
+    // Atout = pique (même couleur que la Dame) et main IA 100% atout,
+    // sinon strategieGarderAtouts jouerait en priorité une carte non-atout
+    const autreIA    = c('spades', '8')
     const state = makeState({
       mainIA: [roiIA, autreIA],
       etaleesHumain: [dameHumain],
-      couleurAtout: 'hearts',
+      couleurAtout: 'spades',
       nbPioche: SEUIL_PIOCHE_PETITE - 1,
     })
+    // Avec IA_MEMOIRE_AVANCEE.intermediaire actif, le déclencheur n'est
+    // plus la pioche mais les brisques non vues restantes (memoire.ts) :
+    // on simule donc aussi peu de brisques encore inconnues (26 vues).
+    state.joueurs[0].pileRemportee = nBrisques(26)
     const carte = choisirCarteIA(state, 'intermediaire')
     expect(carte?.id).toBe(roiIA.id)
   })
@@ -302,13 +339,16 @@ describe('Évolution 4 — Bloquer les mariages adverses (pioche ≤ 4)', () => 
   it('joue la Dame si humain a Roi de même couleur étalé', () => {
     const roiHumain  = c('hearts', 'K')
     const dameIA     = c('hearts', 'Q') // non-utile
-    const autreIA2   = c('clubs', '9')
+    // Atout = cœur (même couleur que le Roi) et main IA 100% atout
+    const autreIA2   = c('hearts', '8')
     const state = makeState({
       mainIA: [dameIA, autreIA2],
       etaleesHumain: [roiHumain],
-      couleurAtout: 'spades',
+      couleurAtout: 'hearts',
       nbPioche: 2,
     })
+    // Idem : déclencheur mémorisation (brisques non vues rares) plutôt que pioche
+    state.joueurs[0].pileRemportee = nBrisques(26)
     const carte = choisirCarteIA(state, 'intermediaire')
     expect(carte?.id).toBe(dameIA.id)
   })
@@ -331,14 +371,19 @@ describe('Évolution 4 — Bloquer les mariages adverses (pioche ≤ 4)', () => 
   it('ne bloque PAS si pioche > 4', () => {
     const dameHumain3 = c('diamonds', 'Q')
     const roiIA3      = c('diamonds', 'K')
-    const autreIA4    = c('clubs', '8')
+    // Atout = diamants (même couleur que le Roi) et main IA 100% atout,
+    // pour isoler l'effet du seuil de pioche (sinon strategieGarderAtouts
+    // choisirait de toute façon la seule carte non-atout disponible)
+    const autreIA4    = c('diamonds', '8')
     const state = makeState({
       mainIA: [roiIA3, autreIA4],
       etaleesHumain: [dameHumain3],
-      couleurAtout: 'clubs',
+      couleurAtout: 'diamonds',
       nbPioche: SEUIL_PIOCHE_PETITE + 1,
     })
     const carte = choisirCarteIA(state, 'intermediaire')
+    // Pioche > seuil : le blocage Roi/Dame ne s'active pas, l'IA retombe
+    // sur son choix par défaut (carte de rang minimal) → le 8, pas le Roi
     expect(carte?.id).not.toBe(roiIA3.id)
   })
 
@@ -425,13 +470,46 @@ describe('Non-régression — Défausse intelligente', () => {
     const carte = choisirCarteIA(state, 'intermediaire')
     expect(carte?.id).toBe(sept2.id)
   })
+
+  it('pli sans brisque, cartes non-brisques toutes utiles : repli sur sansBrisques', () => {
+    // La carte ouverte est elle-même atout (non-brisque) : strategieAsEtaleesOuEviter
+    // et strategieGarderAtouts se retirent immédiatement (couleur == atout).
+    const valetOuverte = c('clubs', 'J')
+    const roiAtout  = c('clubs', 'K')  // mariage atout avec dameAtout → utile
+    const dameAtout = c('clubs', 'Q')  // mariage atout avec roiAtout → utile
+    const state = makeState({
+      mainIA: [roiAtout, dameAtout],
+      carteOuverte: valetOuverte,
+      couleurAtout: 'clubs',
+      nbPioche: 10,
+    })
+    const carte = choisirCarteIA(state, 'intermediaire')
+    // Roi et Dame protégés (mariage) : "sansValeur" est vide, repli sur
+    // "sansBrisques" (ignore le statut utile) → rang minimal
+    expect(carte?.id).toBe(dameAtout.id)
+  })
+
+  it('en ouverture, cartes non-brisques toutes utiles : repli sur sansBrisques', () => {
+    // Main 100% atout pour isoler du strategieGarderAtouts
+    const roiAtout  = c('clubs', 'K')  // mariage atout avec dameAtout → utile
+    const dameAtout = c('clubs', 'Q')  // mariage atout avec roiAtout → utile
+    const state = makeState({
+      mainIA: [roiAtout, dameAtout],
+      couleurAtout: 'clubs',
+      nbPioche: 10, // > SEUIL_PIOCHE_GRANDE et > SEUIL_PIOCHE_PETITE : ni évolution 3 ni évolution 4
+    })
+    const carte = choisirCarteIA(state, 'intermediaire')
+    expect(carte?.id).toBe(dameAtout.id)
+  })
 })
 
 describe('Non-régression — Ouverture prudente', () => {
 
   it('évite les brisques en ouverture (pioche entre 5 et 8)', () => {
     const as5    = c('hearts', 'A')
-    const sept5  = c('clubs', '8')
+    // Doit être non-atout : strategieGarderAtouts (stratégie commune)
+    // ne considère que les cartes non-atout pour son choix en ouverture
+    const sept5  = c('diamonds', '8')
     const state = makeState({
       mainIA: [as5, sept5],
       couleurAtout: 'clubs',

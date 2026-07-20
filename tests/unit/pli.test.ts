@@ -4,9 +4,12 @@
 // ============================================================
 
 import { describe, it, expect } from 'vitest'
-import { resoudrePli, cartesJouablesPhaseFinale } from '../../src/core/pli'
+import { resoudrePli, cartesJouablesPhaseFinale, appliquerPli, jouerCarte } from '../../src/core/pli'
 import { creerCarte, creerJoker } from '../../src/core/deck'
-import type { Couleur } from '../../src/types'
+import { initialiserPartie } from '../../src/core/init'
+import { initialiserChampsIT4 } from '../../src/core/combinaisons'
+import { CONFIG_DEFAUT } from '../../src/types'
+import type { Couleur, GameState } from '../../src/types'
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -311,6 +314,19 @@ describe('cartesJouablesPhaseFinale', () => {
     const jouables = cartesJouablesPhaseFinale(main, null, 'hearts')
     expect(jouables.length).toBe(2)
   })
+
+  it('carte ouverte = Joker : aucune couleur à suivre → défausse libre', () => {
+    const main = [
+      creerCarte('spades', 'A', 0, 0),
+      creerCarte('hearts', 'K', 0, 1),
+      creerCarte('diamonds', '7', 0, 2),
+    ]
+    const jokerOuvert = creerJoker('diamonds', 0, 3)
+    // couleurAtout = 'clubs' : aucune carte en main n'est atout → défausse libre
+    const jouables = cartesJouablesPhaseFinale(main, jokerOuvert, 'clubs')
+    // Le Joker adverse n'impose aucune couleur : toutes les cartes non-Joker jouables
+    expect(jouables.length).toBe(3)
+  })
 })
 
 // ============================================================
@@ -425,6 +441,59 @@ describe('NON-RÉGRESSION — Règles Joker (3 règles correctes)', () => {
     it('Joker J1 ouvre, Joker J0 répond → J1 gagne (avec atout)', () => {
       expect(resoudrePli(JOKER_A, JOKER_B, 1, 'spades').vainqueur).toBe(1)
     })
+  })
+})
+
+// ============================================================
+// NON-RÉGRESSION — appliquerPli / jouerCarte : cas limites
+// ============================================================
+
+function makeStateAvecPli(overrides?: Partial<GameState>): GameState {
+  const { state } = initialiserPartie(CONFIG_DEFAUT)
+  return initialiserChampsIT4({ ...state, ...overrides })
+}
+
+describe('appliquerPli — pli incomplet', () => {
+  it('retourne le state inchangé si carteJoueur0 est absente', () => {
+    const state = makeStateAvecPli({
+      pliEnCours: { carteJoueur0: null, carteJoueur1: AS_COEUR, joueurOuvreur: 1 },
+    })
+    const apres = appliquerPli(state)
+    expect(apres).toBe(state)
+  })
+
+  it('retourne le state inchangé si carteJoueur1 est absente', () => {
+    const state = makeStateAvecPli({
+      pliEnCours: { carteJoueur0: AS_COEUR, carteJoueur1: null, joueurOuvreur: 0 },
+    })
+    const apres = appliquerPli(state)
+    expect(apres).toBe(state)
+  })
+})
+
+describe('jouerCarte — obligation de couleur en phase finale pour J1', () => {
+  it("J1 doit suivre la couleur de la carte jouée par J0 (phase finale)", () => {
+    const dixPiqueJ0 = creerCarte('spades', '10', 0, 200)   // déjà joué par J0
+    const piqueEnMain = creerCarte('spades', '7', 0, 201)   // J1 a du pique : obligatoire
+    const coeurEnMain = creerCarte('hearts', '8', 0, 202)   // ne suit pas la couleur
+
+    let state = makeStateAvecPli({
+      phase: 'finale',
+      couleurAtout: 'diamonds',
+      joueurActif: 1,
+      pliEnCours: { carteJoueur0: dixPiqueJ0, carteJoueur1: null, joueurOuvreur: 0 },
+    })
+    const joueurs = [...state.joueurs] as typeof state.joueurs
+    joueurs[1] = { ...joueurs[1], main: [piqueEnMain, coeurEnMain], cartesEtalees: [] }
+    state = { ...state, joueurs }
+
+    // Jouer le cœur (ne suit pas la couleur alors qu'un pique est disponible) → refusé
+    const refus = jouerCarte(state, 1, coeurEnMain.id)
+    expect(refus.ok).toBe(false)
+
+    // Jouer le pique (suit la couleur) → accepté
+    const accepte = jouerCarte(state, 1, piqueEnMain.id)
+    expect(accepte.ok).toBe(true)
   })
 })
 

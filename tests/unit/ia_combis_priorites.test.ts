@@ -15,6 +15,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { choisirCarteIA } from '../../src/core/ia'
+import { cartesUtilesAuxCombis } from '../../src/core/ia/helpers'
 import { initialiserPartie } from '../../src/core/init'
 import { creerCarte } from '../../src/core/deck'
 import { initialiserChampsIT4 } from '../../src/core/combinaisons'
@@ -53,7 +54,6 @@ function makeState(opts: {
     ...state,
     couleurAtout,
     premierBesiguePose,
-    annonces: annoncesInit,
     pliEnCours: {
       carteJoueur0: carteOuverte,
       carteJoueur1: null,
@@ -61,9 +61,12 @@ function makeState(opts: {
     },
     pioche: Array.from({ length: nbPioche }, () => c('spades', '7')),
   })
+  // NOTE : initialiserChampsIT4 réinitialise `annonces` à [] de façon
+  // inconditionnelle ; on l'applique donc APRÈS l'appel, sans quoi ce
+  // paramètre serait silencieusement ignoré.
   const joueurs = [...base.joueurs] as typeof base.joueurs
   joueurs[1] = { ...joueurs[1], main: mainIA, cartesEtalees: etaleesIA }
-  return { ...base, joueurs }
+  return { ...base, joueurs, annonces: annoncesInit }
 }
 
 // ============================================================
@@ -278,6 +281,54 @@ describe('Priorité 4 — Premier bésigue (si non encore annoncé)', () => {
       expect(carte).not.toBeNull()
       // Le Roi n'est pas un mariage (pas de Dame de même couleur) → peut être joué
     })
+  })
+
+  // Tests directs de cartesUtilesAuxCombis : dans le pipeline complet,
+  // strategieGarderAtouts intercepte systématiquement dès qu'une carte
+  // non-atout est disponible (huitH ci-dessus), avant même de consulter
+  // cartesUtiles. On teste donc ici la fonction en isolation, comme le
+  // permet son statut de fonction exportée.
+  it('Priorité 4 (isolation) : Dame♠+Valet♦ marqués utiles si bésigue non annoncé', () => {
+    const dameS  = c('spades', 'Q')
+    const valetD = c('diamonds', 'J')
+    const huitH  = c('hearts', '8')
+    const state = makeState({
+      mainIA: [dameS, valetD, huitH],
+      couleurAtout: 'clubs',
+      premierBesiguePose: false,
+      annonces: [],
+    })
+    const utiles = cartesUtilesAuxCombis(state, 1)
+    expect(utiles.has(dameS.id)).toBe(true)
+    expect(utiles.has(valetD.id)).toBe(true)
+    expect(utiles.has(huitH.id)).toBe(false)
+  })
+
+  it('Priorité 4 (isolation) : ni Dame♠ ni Valet♦ seul ne suffit', () => {
+    const dameS  = c('spades', 'Q')
+    const roiH   = c('hearts', 'K')
+    const state = makeState({
+      mainIA: [dameS, roiH],
+      couleurAtout: 'clubs',
+      premierBesiguePose: false,
+      annonces: [],
+    })
+    const utiles = cartesUtilesAuxCombis(state, 1)
+    expect(utiles.has(dameS.id)).toBe(false)
+  })
+
+  it('Priorité 8 (isolation) : Dame♠+Valet♦ marqués utiles si 1er bésigue déjà annoncé (par ce joueur)', () => {
+    const dameS  = c('spades', 'Q')
+    const valetD = c('diamonds', 'J')
+    const state = makeState({
+      mainIA: [dameS, valetD],
+      couleurAtout: 'clubs',
+      premierBesiguePose: true,
+      annonces: [annonce('besigue', [dameS.id, valetD.id])],
+    })
+    const utiles = cartesUtilesAuxCombis(state, 1)
+    expect(utiles.has(dameS.id)).toBe(true)
+    expect(utiles.has(valetD.id)).toBe(true)
   })
 })
 

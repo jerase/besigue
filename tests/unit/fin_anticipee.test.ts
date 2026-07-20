@@ -185,7 +185,8 @@ describe('finAnticipee=true — vainqueurManche correct', () => {
   })
 
   it('compteur de manches incrémenté correctement', () => {
-    const state = makeState({ scoreJ0: 1000, scoreJ1: 400, compteurManches: [1, 0] })
+    // J1 = 800 ≥ 750 : pas "en bas de table", donc gain normal (+1)
+    const state = makeState({ scoreJ0: 1000, scoreJ1: 800, compteurManches: [1, 0] })
     const r = appliquerFinManche(state, true)
     expect(r.compteurManches[0]).toBe(2)
     expect(r.compteurManches[1]).toBe(0)
@@ -231,15 +232,18 @@ describe('Non-régression — finAnticipee=false (comportement existant)', () =>
   })
 
   it('enBasTable basé sur scores + brisques', () => {
-    // J0 = 800 + 20 As brisques = peut dépasser 1000
-    // J1 = 600 + brisques (si J1 a brisques, peut dépasser 750)
+    // Le comptage des brisques est "gagnant-emporte-tout" : seul le
+    // joueur qui a le PLUS de brisques marque (+brisques*10), l'autre
+    // est pénalisé (-200 si son score >= 200). Ici J0 a 20 brisques
+    // contre 2 pour J1 : J0 gagne le décompte et progresse, J1 perd
+    // des points malgré ses propres brisques.
     const pileJ0 = Array.from({ length: 20 }, (_, i) => c('hearts', 'A', i % 4))
     const pileJ1 = Array.from({ length: 2 }, (_, i) => c('spades', 'A', i))
     const state = makeState({ scoreJ0: 800, scoreJ1: 600, pileJ0, pileJ1 })
     const r = appliquerFinManche(state, false)
-    // Comportement existant : scores + brisques
+    // Comportement existant : scores + brisques (gagnant-emporte-tout)
     expect(r.scoreFinJ0).toBeGreaterThan(800)
-    expect(r.scoreFinJ1).toBeGreaterThan(600)
+    expect(r.scoreFinJ1).toBeLessThan(600)
   })
 
   it('appel sans paramètre = finAnticipee=false (défaut)', () => {

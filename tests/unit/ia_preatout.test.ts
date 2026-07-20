@@ -11,13 +11,23 @@
 // La règle ne s'applique JAMAIS en réponse (carte ouverte présente)
 // ============================================================
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { choisirCarteIA } from '../../src/core/ia'
 import { initialiserPartie } from '../../src/core/init'
 import { creerCarte } from '../../src/core/deck'
 import { initialiserChampsIT4 } from '../../src/core/combinaisons'
 import { CONFIG_DEFAUT } from '../../src/types'
 import type { GameState, Carte, Couleur, NiveauIA } from '../../src/types'
+
+// Le niveau "facile" pioche dans Math.random() pour décider s'il applique
+// (ou "rate" volontairement) une stratégie. On fige le hasard à une valeur
+// haute pour que ces tests de non-régression soient déterministes.
+beforeEach(() => {
+  vi.spyOn(Math, 'random').mockReturnValue(0.99)
+})
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -57,7 +67,7 @@ function makeState(opts: {
 describe('Priorité 1 — Cartes faibles (9, 8, 7) quand atout non défini', () => {
 
   NIVEAUX.forEach(niveau => {
-    it(`[${niveau}] joue le 7 si disponible (rang le plus faible)`, () => {
+    it(`[${niveau}] joue le 7 si disponible (rang le plus faible) — sauf Difficile qui priorise l'As (a.2)`, () => {
       const sept = c('hearts', '7')
       const roi  = c('spades', 'K')
       const as   = c('diamonds', 'A')
@@ -66,7 +76,14 @@ describe('Priorité 1 — Cartes faibles (9, 8, 7) quand atout non défini', () 
         couleurAtout: null,
       })
       const carte = choisirCarteIA(state, niveau)
-      expect(carte?.id).toBe(sept.id)
+      // Règle a.2 (Phase 2 Difficile, Phase 3 Intermédiaire) : en
+      // ouverture, tant que l'atout n'est pas déclaré, l'As est toujours
+      // prioritaire sur toute carte faible (coup quasi imparable).
+      if (niveau === 'difficile' || niveau === 'intermediaire') {
+        expect(carte?.id).toBe(as.id)
+      } else {
+        expect(carte?.id).toBe(sept.id)
+      }
     })
 
     it(`[${niveau}] joue le 8 si pas de 7`, () => {
@@ -81,7 +98,7 @@ describe('Priorité 1 — Cartes faibles (9, 8, 7) quand atout non défini', () 
       expect(carte?.id).toBe(huit.id)
     })
 
-    it(`[${niveau}] joue le 9 si ni 7 ni 8`, () => {
+    it(`[${niveau}] joue le 9 si ni 7 ni 8 — sauf Difficile qui priorise l'As (a.2)`, () => {
       const neuf = c('diamonds', '9')
       const roi  = c('spades', 'K')
       const as   = c('hearts', 'A')
@@ -90,7 +107,11 @@ describe('Priorité 1 — Cartes faibles (9, 8, 7) quand atout non défini', () 
         couleurAtout: null,
       })
       const carte = choisirCarteIA(state, niveau)
-      expect(carte?.id).toBe(neuf.id)
+      if (niveau === 'difficile' || niveau === 'intermediaire') {
+        expect(carte?.id).toBe(as.id)
+      } else {
+        expect(carte?.id).toBe(neuf.id)
+      }
     })
 
     it(`[${niveau}] préfère le 7 au 8 et au 9 (rang minimal)`, () => {

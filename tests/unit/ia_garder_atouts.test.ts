@@ -14,13 +14,24 @@
 //   - Les règles couper10/couper-As passent AVANT
 // ============================================================
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { choisirCarteIA, SEUIL_GARDER_ATOUTS } from '../../src/core/ia'
 import { initialiserPartie } from '../../src/core/init'
 import { creerCarte } from '../../src/core/deck'
 import { initialiserChampsIT4 } from '../../src/core/combinaisons'
 import { CONFIG_DEFAUT } from '../../src/types'
 import type { GameState, Carte, Couleur, NiveauIA } from '../../src/types'
+
+// Le niveau "facile" pioche dans Math.random() pour décider s'il applique
+// (ou "rate" volontairement) une stratégie (ex : jouer un atout prématuré
+// en ouverture). On fige le hasard à une valeur haute pour que ces tests
+// de non-régression soient déterministes.
+beforeEach(() => {
+  vi.spyOn(Math, 'random').mockReturnValue(0.99)
+})
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 // ── Helpers ──────────────────────────────────────────────────
 

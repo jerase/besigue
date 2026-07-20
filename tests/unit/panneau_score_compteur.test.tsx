@@ -38,7 +38,9 @@ describe('Compteur à zéro (début de partie)', () => {
   it('les 4 pastilles des deux joueurs sont inactives (aucune remplie)', () => {
     const { container } = render(<PanneauScore state={makeState([0, 0])} onPause={onPause} />)
     // Toutes les pastilles doivent être grises (bg-white/15), aucune en amber
-    const pastillesAmber = container.querySelectorAll('.bg-amber-400')
+    // Note : le point "joueur actif" (animate-pulse) utilise aussi
+    // bg-amber-400 mais n'est pas une pastille de compteur de manches.
+    const pastillesAmber = container.querySelectorAll('.bg-amber-400:not(.animate-pulse)')
     expect(pastillesAmber).toHaveLength(0)
   })
 })
@@ -70,13 +72,13 @@ describe('J0 a des manches gagnées', () => {
 
   it('2 manches J0 → 2 pastilles amber pour J0', () => {
     const { container } = render(<PanneauScore state={makeState([2, 0])} onPause={onPause} />)
-    const pastillesAmber = container.querySelectorAll('.bg-amber-400')
+    const pastillesAmber = container.querySelectorAll('.bg-amber-400:not(.animate-pulse)')
     expect(pastillesAmber).toHaveLength(2)
   })
 
   it('3 manches J0 → 3 pastilles amber', () => {
     const { container } = render(<PanneauScore state={makeState([3, 0])} onPause={onPause} />)
-    const pastillesAmber = container.querySelectorAll('.bg-amber-400')
+    const pastillesAmber = container.querySelectorAll('.bg-amber-400:not(.animate-pulse)')
     expect(pastillesAmber).toHaveLength(3)
   })
 })
@@ -93,7 +95,7 @@ describe('J1 (IA) a des manches gagnées', () => {
 
   it('2 manches J1 → 2 pastilles amber', () => {
     const { container } = render(<PanneauScore state={makeState([0, 2])} onPause={onPause} />)
-    const pastillesAmber = container.querySelectorAll('.bg-amber-400')
+    const pastillesAmber = container.querySelectorAll('.bg-amber-400:not(.animate-pulse)')
     expect(pastillesAmber).toHaveLength(2)
   })
 })
@@ -111,13 +113,13 @@ describe('Compteurs indépendants par joueur', () => {
 
   it('J0=2, J1=1 → 3 pastilles amber au total', () => {
     const { container } = render(<PanneauScore state={makeState([2, 1])} onPause={onPause} />)
-    const pastillesAmber = container.querySelectorAll('.bg-amber-400')
+    const pastillesAmber = container.querySelectorAll('.bg-amber-400:not(.animate-pulse)')
     expect(pastillesAmber).toHaveLength(3)
   })
 
   it('J0=0, J1=3 → 3 pastilles amber', () => {
     const { container } = render(<PanneauScore state={makeState([0, 3])} onPause={onPause} />)
-    const pastillesAmber = container.querySelectorAll('.bg-amber-400')
+    const pastillesAmber = container.querySelectorAll('.bg-amber-400:not(.animate-pulse)')
     expect(pastillesAmber).toHaveLength(3)
   })
 })
@@ -137,7 +139,7 @@ describe('Remise à zéro après victoire adverse', () => {
 
   it('J0=0, J1=1 → 1 seule pastille amber', () => {
     const { container } = render(<PanneauScore state={makeState([0, 1])} onPause={onPause} />)
-    const pastillesAmber = container.querySelectorAll('.bg-amber-400')
+    const pastillesAmber = container.querySelectorAll('.bg-amber-400:not(.animate-pulse)')
     expect(pastillesAmber).toHaveLength(1)
   })
 })

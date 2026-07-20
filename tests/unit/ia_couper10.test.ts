@@ -15,13 +15,25 @@
 //   3. Sinon fallback
 // ============================================================
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { choisirCarteIA } from '../../src/core/ia'
 import { initialiserPartie } from '../../src/core/init'
 import { creerCarte } from '../../src/core/deck'
 import { initialiserChampsIT4 } from '../../src/core/combinaisons'
 import { CONFIG_DEFAUT } from '../../src/types'
 import type { GameState, Carte, Couleur, NiveauIA } from '../../src/types'
+
+// Le niveau "facile" pioche dans Math.random() pour décider s'il applique
+// (ou "rate" volontairement) une stratégie. On fige le hasard à une valeur
+// haute pour que ces tests de non-régression soient déterministes : cela
+// désactive les comportements probabilistes d'erreur volontaire et laisse
+// place à l'application normale des règles testées ici.
+beforeEach(() => {
+  vi.spyOn(Math, 'random').mockReturnValue(0.99)
+})
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -286,23 +298,38 @@ describe('Cas B.2 — 10 atout : 1 seul As d\'atout + pioche ≤ 2 → jouer cet
 })
 
 describe('Cas B.3 — Fallback : 1 seul As d\'atout + pioche > 2', () => {
-  it('[difficile] ne sacrifie pas l\'As unique si la pioche est encore grande', () => {
-    const dixAtout = c('clubs', '10')
+  // strategieCouper10 (B.3) renvoie null quand l'IA n'a qu'un seul As
+  // d'atout et que la pioche est encore grande : elle ne force pas le
+  // jeu de cet As au seul titre de "couper le 10". Mais un 10 est en
+  // lui-même une brisque : si cet As reste le SEUL moyen de remporter
+  // le pli (aucune autre carte de la main ne bat le 10), la logique
+  // générale de gain de brisque (bloc RÉPONSE, commune à tous les
+  // niveaux) rejoue quand même l'As pour capturer la brisque adverse.
+  // Pour observer un véritable renoncement, il faut placer l'IA en
+  // mode prudent (difficile) ET que l'As soit lui-même "utile" (une
+  // quinte d'atout en cours) : dans ce cas seulement l'IA préfère
+  // laisser filer plutôt que sacrifier une combinaison utile.
+  it('[difficile] mode prudent : ne sacrifie pas l\'As unique s\'il est utile à une combinaison', () => {
+    const dixAtout = c('clubs', '10')          // joué par l'humain (jeu 0)
     const asUnique4 = c('clubs', 'A')
-    const roiClubs  = c('clubs', 'K')
+    const dixIA     = c('clubs', '10', 1)       // second exemplaire (jeu 1)
+    const valetIA   = c('clubs', 'J')
     const state = makeStateAvecPli(
       dixAtout,
-      [asUnique4, roiClubs, c('hearts', '8')],
+      [asUnique4, dixIA, valetIA, c('hearts', '8')],
       [],
       'clubs',
-      10 // pioche encore grande → fallback, ne pas jouer l'As
+      10 // pioche encore grande
     )
-    const carte = choisirCarteIA(state, 'difficile')
-    // Ne doit PAS jouer l'As unique
+    // Mode prudent : l'IA mène 3-0
+    const stateAvecCompteur = { ...state, compteurManches: [3, 0] as [number, number] }
+    const carte = choisirCarteIA(stateAvecCompteur, 'difficile')
+    // A/10/J d'atout réunis forment une quinte potentielle : l'As est
+    // "utile", l'IA préfère se défausser plutôt que le sacrifier.
     expect(carte?.id).not.toBe(asUnique4.id)
   })
 
-  it('[intermediaire] fallback si 1 seul As d\'atout et pioche = 3', () => {
+  it('[intermediaire] joue quand même l\'As unique : c\'est le seul moyen de gagner la brisque', () => {
     const dixAtout = c('hearts', '10')
     const asUnique5 = c('hearts', 'A')
     const state = makeStateAvecPli(
@@ -310,10 +337,31 @@ describe('Cas B.3 — Fallback : 1 seul As d\'atout + pioche > 2', () => {
       [asUnique5, c('clubs', '9'), c('spades', '8')],
       [],
       'hearts',
-      3 // > 2 → fallback
+      3 // > 2 → strategieCouper10 (B.3) ne s'applique pas
     )
     const carte = choisirCarteIA(state, 'intermediaire')
-    expect(carte?.id).not.toBe(asUnique5.id)
+    // Contrairement au mode "difficile", l'IA "intermediaire" n'a pas
+    // de mode prudent : elle joue son seul atout gagnant pour capturer
+    // la brisque, même si la pioche est encore grande.
+    expect(carte?.id).toBe(asUnique5.id)
+  })
+
+  it('[intermediaire] pioche > seuil petit : gagne la brisque via gagnantsNonUtiles', () => {
+    // Pioche strictement supérieure à SEUIL_PIOCHE_PETITE (4) : le mode
+    // "agressif" (Évolution 2) ne s'applique pas, mais l'IA gagne quand
+    // même la brisque via la branche gagnantsNonUtiles (seul moyen de
+    // gagner de toute façon).
+    const dixAtout = c('clubs', '10')
+    const asUnique6 = c('clubs', 'A')
+    const state = makeStateAvecPli(
+      dixAtout,
+      [asUnique6],
+      [],
+      'clubs',
+      10 // > SEUIL_PIOCHE_PETITE (4) et > 2 (B.3 de strategieCouper10)
+    )
+    const carte = choisirCarteIA(state, 'intermediaire')
+    expect(carte?.id).toBe(asUnique6.id)
   })
 })
 

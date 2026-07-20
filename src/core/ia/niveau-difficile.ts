@@ -2,15 +2,18 @@
 // NIVEAU DIFFICILE — Stratégique avancé
 // ============================================================
 //
-// D.1 — Mémorisation des cartes vues
-// D.2 — Gestion du score de partie (modes prudent / agressif)
+// A/B — Règles tactiques mémorisation + anticipation (priorité absolue,
+//        avant toute la cascade existante — a.1→a.4, b.1→b.2)
+// D.1 — Mémorisation RÉELLE des cartes vues (memoire.ts, par déduction)
+// D.2 — Gestion du score de partie (modes prudent / agressif),
+//        enrichie par l'objectif de 16 brisques (anticipation.ts)
 // D.3 — Phase finale dédiée (couper librement)
 // D.4 — Variation de style (anti-prévisibilité 5-10%)
 
 import type { Carte, GameState } from '../../types'
 import { ORDRE_RANGS, VALEURS_BRISQUES } from '../../types'
 import { logger } from '../../utils/logger'
-import { PROBA_VARIATION_MIN, PROBA_VARIATION_MAX } from '../ia.config'
+import { PROBA_VARIATION_MIN, PROBA_VARIATION_MAX, IA_MEMOIRE_AVANCEE } from '../ia.config'
 import {
   carteAvecRangMinimal, carteAvecRangMaximal,
   candidatsGagnants, cartesUtilesAuxCombis, valeurBrisque,
@@ -20,6 +23,13 @@ import {
   strategieGarderAtouts, strategieEtaleesEnReponse,
   strategieOuverturePreAtout,
 } from './strategies'
+import {
+  strategieBrisqueGagnante, strategieOuvrirAvecAs,
+  strategieGagnerPourMariage, strategieOuvrirJokerSansMariage,
+  strategieOuvrirCouleurEpuisee,
+} from './strategies-avancees'
+import { brisquesNonVuesRestantes } from './memoire'
+import { objectifBrisqueAtteignable } from './anticipation'
 
 /** Retourne la 2e meilleure carte selon une probabilité aléatoire */
 function appliquerVariation(cartes: Carte[]): Carte | null {
@@ -32,18 +42,76 @@ function appliquerVariation(cartes: Carte[]): Carte | null {
   return null
 }
 
+/**
+ * Ancien comptage agrégé des brisques restantes (D.1 pré-Phase 2) —
+ * conservé uniquement comme repli si IA_MEMOIRE_AVANCEE.difficile est
+ * désactivé. Moins précis que memoire.ts : ignore les cartes étalées,
+ * le pli en cours (si non transmis via carteOuverte) et la main IA.
+ */
+function ancienComptageBrisquesRestantes(state: GameState, carteOuverte: Carte | null): number {
+  const ia = state.joueurs[1]
+  const humain = state.joueurs[0]
+  const cartesVues = new Set<string>([
+    ...ia.pileRemportee.map(c => c.id),
+    ...humain.pileRemportee.map(c => c.id),
+    ...(carteOuverte ? [carteOuverte.id] : []),
+  ])
+  const all = [...ia.pileRemportee, ...humain.pileRemportee]
+  const brisquesVues = [...cartesVues].filter(id => all.some(c => c.id === id && valeurBrisque(c) > 0)).length
+  return 32 - brisquesVues
+}
+
 export function iaDifficile(candidats: Carte[], state: GameState): Carte {
   const carteOuverte = state.pliEnCours.carteJoueur0
   const couleurAtout = state.couleurAtout
-  const ia = state.joueurs[1]
-  const humain = state.joueurs[0]
   const piocheRestante = state.pioche.length
   const [manchesIA, manchesHumain] = state.compteurManches ?? [0, 0]
 
-  // D.2 : Déterminer le mode de jeu
+  // ── Règles tactiques A/B — priorité absolue sur toute la cascade ──
+  if (IA_MEMOIRE_AVANCEE.difficile) {
+    const brisqueGagnante = strategieBrisqueGagnante(candidats, state) // a.1 / b.1
+    if (brisqueGagnante) {
+      logger.debug('IA', `Difficile — [A/B] BrisqueGagnante → ${brisqueGagnante.rang}${brisqueGagnante.couleur}`)
+      return brisqueGagnante
+    }
+
+    const ouvrirAs = strategieOuvrirAvecAs(candidats, state) // a.2 / a.3
+    if (ouvrirAs) {
+      logger.debug('IA', `Difficile — [A/B] OuvrirAvecAs → ${ouvrirAs.rang}${ouvrirAs.couleur}`)
+      return ouvrirAs
+    }
+
+    const gagnerMariage = strategieGagnerPourMariage(candidats, state) // a.3 (suite)
+    if (gagnerMariage) {
+      logger.debug('IA', `Difficile — [A/B] GagnerPourMariage → ${gagnerMariage.rang}${gagnerMariage.couleur}`)
+      return gagnerMariage
+    }
+
+    const ouvrirJoker = strategieOuvrirJokerSansMariage(candidats, state) // a.4
+    if (ouvrirJoker) {
+      logger.debug('IA', `Difficile — [A/B] OuvrirJokerSansMariage → ${ouvrirJoker.rang}${ouvrirJoker.couleur}`)
+      return ouvrirJoker
+    }
+
+    const ouvrirCouleurEpuisee = strategieOuvrirCouleurEpuisee(candidats, state) // b.2
+    if (ouvrirCouleurEpuisee) {
+      logger.debug('IA', `Difficile — [A/B] OuvrirCouleurÉpuisée → ${ouvrirCouleurEpuisee.rang}${ouvrirCouleurEpuisee.couleur}`)
+      return ouvrirCouleurEpuisee
+    }
+  }
+
+  // D.2 : Déterminer le mode de jeu — score de manche + objectif de 16 brisques
+  const objectifBrisques = IA_MEMOIRE_AVANCEE.difficile ? objectifBrisqueAtteignable(state) : null
   const modeAgressif = manchesHumain >= 3 && manchesIA === 0
-  const modePrudent  = manchesIA >= 3 && manchesHumain === 0
-  logger.debug('IA', `Difficile — mode: ${modeAgressif ? 'AGRESSIF' : modePrudent ? 'PRUDENT' : 'NORMAL'}`)
+  // Mode prudent déclenché par le score de manche OU par l'objectif de 16 brisques
+  // devenu mathématiquement hors de portée (repli : préserver le score plutôt
+  // que de continuer à sacrifier des cartes pour une bataille de brisques perdue)
+  const modePrudent = (manchesIA >= 3 && manchesHumain === 0) || objectifBrisques?.mode === 'repli'
+  logger.debug(
+    'IA',
+    `Difficile — mode: ${modeAgressif ? 'AGRESSIF' : modePrudent ? 'PRUDENT' : 'NORMAL'}` +
+    (objectifBrisques ? ` | brisques: ${objectifBrisques.actuelles}/16 (${objectifBrisques.mode})` : '')
+  )
 
   // Stratégies communes
   const asEtalees = strategieAsEtaleesOuEviter(candidats, state)
@@ -70,21 +138,11 @@ export function iaDifficile(candidats: Carte[], state: GameState): Carte {
     return preAtout
   }
 
-  // D.1 : Cartes vues (mémorisation)
-  const cartesVues = new Set<string>([
-    ...ia.pileRemportee.map(c => c.id),
-    ...humain.pileRemportee.map(c => c.id),
-    ...(carteOuverte ? [carteOuverte.id] : []),
-  ])
-
+  // D.1 : Mémorisation réelle (par déduction) — remplace l'ancien comptage agrégé
   const cartesUtiles = cartesUtilesAuxCombis(state, 1)
-
-  // Brisques restantes estimées
-  const brisquesVues = [...cartesVues].filter(id => {
-    const all = [...ia.pileRemportee, ...humain.pileRemportee]
-    return all.some(c => c.id === id && valeurBrisque(c) > 0)
-  }).length
-  const brisquesRestantes = 32 - brisquesVues
+  const brisquesRestantes = IA_MEMOIRE_AVANCEE.difficile
+    ? brisquesNonVuesRestantes(state, 1)
+    : ancienComptageBrisquesRestantes(state, carteOuverte)
 
   const estPhaseFinale = piocheRestante === 0
 

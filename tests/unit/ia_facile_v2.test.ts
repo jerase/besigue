@@ -237,9 +237,15 @@ describe('Comportement 3 — Brisque imprudente en ouverture', () => {
       const carte = choisirCarteIA(state, 'facile')
       if (carte && (carte.rang === 'A' || carte.rang === '10')) brisquesJouees++
     }
-    // Aléatoire pur = 50% (2/4). Comportement 3 booste légèrement au-dessus.
-    // Attendu : > 40% (comportement aléatoire de base) et < 95%
-    expect(brisquesJouees).toBeGreaterThan(60)
+    // Sans atout défini, quand Comportement 3 (brisque imprudente,
+    // ~20% de chances) ne se déclenche pas, strategieOuverturePreAtout
+    // (stratégie commune) choisit déterministement la carte de rang le
+    // plus faible parmi 7/8/9 (ici le 7, non-brisque) : il n'y a donc
+    // PAS de fond aléatoire à 50%. Le taux de brisques attendu est
+    // proche de PROBA_BRISQUE_IMPRUDENTE seule (~20%, ~40/200).
+    // Fourchette large retenue pour rester robuste au tirage aléatoire.
+    expect(brisquesJouees).toBeGreaterThan(15)
+    expect(brisquesJouees).toBeLessThan(70)
   })
 
   it('sans brisque disponible : comportement 3 est ignoré', () => {
@@ -273,11 +279,17 @@ describe('Non-régression — Aléatoire pur préservé', () => {
 
   it('produit de la variété sur 50 tirages sans comportements spéciaux', () => {
     vi.restoreAllMocks()
-    // Aucune condition spéciale : pas de 10, pas d'atout, pas de brisques
+    // Pour observer le "pur hasard", il faut qu'AUCUNE stratégie commune
+    // ne s'applique. En ouverture sans atout défini, strategieOuverturePreAtout
+    // choisit toujours déterministement la carte de rang le plus faible
+    // (ce n'est donc pas un bon scénario de test pour la variété).
+    // En réponse à un atout non-As/10, si la main de l'IA n'est composée
+    // QUE d'atouts, aucune stratégie commune (garderAtouts, étalées,
+    // as-étalées) ne peut s'appliquer : on retombe sur l'aléatoire pur.
+    const carteOuverte = c('clubs', 'Q')
     const state = makeState([
-      c('hearts', '7'), c('spades', '8'), c('clubs', '9'),
-      c('diamonds', 'K'), c('hearts', 'J'),
-    ], null, null)
+      c('clubs', 'K'), c('clubs', 'J'), c('clubs', '9'), c('clubs', '8'),
+    ], carteOuverte, 'clubs')
     const ids = new Set<string>()
     for (let i = 0; i < 50; i++) {
       const carte = choisirCarteIA(state, 'facile')

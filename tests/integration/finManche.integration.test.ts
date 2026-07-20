@@ -29,7 +29,9 @@ describe('IT-5 intégration — scénarios de fin de manche', () => {
 
   it('scénario victoire simple : J0 atteint 1000 avec les brisques — manche gagnée, partie continue', () => {
     // J0 : 800 pts + 20 brisques × 10 = 800 + 200 = 1000
-    const state = makeState(800, 400, 20, 12)
+    // J1 = 960 : après pénalité de brisques (-200, J0 ayant plus de
+    // brisques que J1) il reste à 760 ≥ 750, donc pas "en bas de table"
+    const state = makeState(800, 960, 20, 12)
     const r = appliquerFinManche(state)
     expect(r.vainqueurManche).toBe(0)
     expect(r.scoreFinJ0).toBeGreaterThanOrEqual(1000)

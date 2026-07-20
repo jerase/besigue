@@ -123,23 +123,27 @@ describe('D.2 — Mode PRUDENT (IA mène 3-0)', () => {
   it('en réponse à une brisque : laisse passer si sacrifice une carte utile', () => {
     const asHumain = c('hearts', 'A')    // brisque adverse
     const asAtout  = c('clubs', 'A')     // seul gagnant possible — mais utile
+    const dixAtout = c('clubs', '10', 1) // avec l'As et le Valet, forme une quinte potentielle
+    const valetAtout = c('clubs', 'J')
     const state = makeState({
-      mainIA: [asAtout, c('spades', '8')],
+      mainIA: [asAtout, dixAtout, valetAtout, c('spades', '8')],
       carteOuverte: asHumain,
       couleurAtout: 'clubs',
       compteurManches: [3, 0], // IA mène → mode prudent
     })
     const carte = choisirCarteIA(state, 'difficile')
-    // En mode prudent, ne sacrifie pas la carte utile
-    // → défausse à la place
+    // En mode prudent, ne sacrifie pas la carte utile (A/10/J d'atout
+    // réunis = quinte en préparation) → défausse à la place
     expect(carte?.id).not.toBe(asAtout.id)
   })
 
   it('en ouverture : joue la carte minimale (non-brisque, non-utile)', () => {
-    const huit  = c('spades', '8')   // non-brisque, non-utile
-    const as    = c('hearts', 'A')   // brisque
+    const dix   = c('clubs', '10')   // atout, brisque
+    const huit  = c('clubs', '8')    // atout, non-brisque, non-utile, rang minimal
+    // Main 100% atout : sinon strategieGarderAtouts (stratégie commune)
+    // choisirait en priorité une carte non-atout avant même le mode prudent
     const state = makeState({
-      mainIA: [as, huit],
+      mainIA: [dix, huit],
       couleurAtout: 'clubs',
       compteurManches: [3, 0],
     })
@@ -149,9 +153,11 @@ describe('D.2 — Mode PRUDENT (IA mène 3-0)', () => {
   })
 
   it('ne joue PAS d\'atout fort offensivement en mode prudent', () => {
-    const asAtout  = c('clubs', 'A')   // atout fort
-    const dixAtout = c('clubs', '10')  // atout fort
-    const huit     = c('spades', '8')  // non-atout
+    const asAtout  = c('clubs', 'A')   // atout fort (brisque)
+    const dixAtout = c('clubs', '10')  // atout fort (brisque)
+    const huit     = c('clubs', '8')   // atout faible, non-brisque
+    // Main 100% atout pour isoler le choix du mode prudent (sinon
+    // strategieGarderAtouts jouerait la seule carte non-atout)
     const state = makeState({
       mainIA: [asAtout, dixAtout, huit],
       couleurAtout: 'clubs',
@@ -159,8 +165,8 @@ describe('D.2 — Mode PRUDENT (IA mène 3-0)', () => {
       nbPioche: 10,
     })
     const carte = choisirCarteIA(state, 'difficile')
-    // Mode prudent → ne tire pas avec l\'atout fort
-    expect(carte?.couleur).not.toBe('clubs') // pas d\'atout offensif
+    // Mode prudent → carte la plus faible, jamais l'As ni le 10 (brisques fortes)
+    expect(carte?.id).toBe(huit.id)
   })
 })
 
@@ -185,7 +191,9 @@ describe('D.2 — Mode AGRESSIF (adversaire mène 3-0)', () => {
   it('en ouverture : joue un atout fort pour tirer l\'adversaire', () => {
     const asAtout2  = c('clubs', 'A')
     const dixAtout  = c('clubs', '10')
-    const huit      = c('spades', '8')
+    const huit      = c('clubs', '8')  // atout aussi : sinon strategieGarderAtouts
+                                        // (commune à tous les niveaux) jouerait
+                                        // en priorité l'unique carte non-atout
     const state = makeState({
       mainIA: [asAtout2, dixAtout, huit],
       couleurAtout: 'clubs',
@@ -404,14 +412,33 @@ describe('Non-régression — Couper le 10 prioritaire', () => {
 describe('Non-régression — 7 d\'atout en ouverture', () => {
   it('joue le 7 d\'atout si disponible et non-utile (mode normal)', () => {
     const septAtout = c('clubs', '7')
-    const roiH      = c('hearts', 'K')
+    const roiAtout  = c('clubs', 'K')  // atout aussi : sinon strategieGarderAtouts
+                                        // jouerait en priorité une carte non-atout
     const state = makeState({
-      mainIA: [septAtout, roiH],
+      mainIA: [septAtout, roiAtout],
       couleurAtout: 'clubs',
       compteurManches: [1, 1],
     })
     const carte = choisirCarteIA(state, 'difficile')
     expect(carte?.id).toBe(septAtout.id)
+  })
+})
+
+describe('Contrôle atout si brisques restantes élevées', () => {
+  it('en ouverture, mode normal, atout fort non-utile disponible : joue l\'atout fort', () => {
+    // Main 100% atout (sinon strategieGarderAtouts intercepterait avant),
+    // As d'atout non-utile, brisquesRestantes élevé par défaut (aucune
+    // carte encore remportée) → "contrôle atout" doit s'appliquer avant
+    // même la règle du "7 d'atout".
+    const asAtout  = c('clubs', 'A')
+    const septAtout = c('clubs', '7')
+    const state = makeState({
+      mainIA: [asAtout, septAtout],
+      couleurAtout: 'clubs',
+      compteurManches: [0, 0], // mode normal
+    })
+    const carte = choisirCarteIA(state, 'difficile')
+    expect(carte?.id).toBe(asAtout.id)
   })
 })
 
@@ -427,6 +454,72 @@ describe('Non-régression — Défausse intelligente', () => {
     })
     const carte = choisirCarteIA(state, 'difficile')
     expect(carte?.id).toBe(sept.id)
+  })
+
+  it('en ouverture, main composée uniquement de brisques d\'atout utiles : repli sur les candidats', () => {
+    // 3 As de même couleur que l'atout : Priorité 3 (3+ As → protégés)
+    // les marque tous "utiles", et ce sont aussi tous des brisques.
+    // sansValeur et sansBrisques sont donc tous deux vides → repli final
+    // sur l'ensemble des candidats (comportement de dernier recours).
+    // Main 100% atout : sinon strategieGarderAtouts interviendrait avant.
+    const as1 = c('clubs', 'A', 0)
+    const as2 = c('clubs', 'A', 1)
+    const as3 = c('clubs', 'A', 2)
+    const state = makeState({
+      mainIA: [as1, as2, as3],
+      couleurAtout: 'clubs',
+      compteurManches: [0, 0], // mode normal (ni prudent ni agressif)
+    })
+    const carte = choisirCarteIA(state, 'difficile')
+    expect(carte).not.toBeNull()
+    expect([as1.id, as2.id, as3.id]).toContain(carte?.id)
+  })
+
+  it('pli sans brisque, main 100% atout : défausse optimale (non-brisque, non-utile)', () => {
+    // La carte ouverte est elle-même atout (non-brisque) : strategieAsEtaleesOuEviter
+    // et strategieGarderAtouts se retirent immédiatement (couleur == atout),
+    // laissant la "défausse optimale" de niveau-difficile.ts s'appliquer.
+    const dameOuverte = c('clubs', 'Q')
+    const roiAtout  = c('clubs', 'K')  // non-brisque, non-utile (pas de Dame en main)
+    const valetAtout = c('clubs', 'J') // non-brisque, non-utile, rang plus faible
+    const state = makeState({
+      mainIA: [roiAtout, valetAtout],
+      carteOuverte: dameOuverte,
+      couleurAtout: 'clubs',
+    })
+    const carte = choisirCarteIA(state, 'difficile')
+    expect(carte?.id).toBe(valetAtout.id)
+  })
+
+  it('pli sans brisque, cartes non-brisques toutes utiles : repli sur sansBrisques', () => {
+    const valetOuverte = c('clubs', 'J')
+    const roiAtout  = c('clubs', 'K')  // mariage atout avec dameAtout → utile
+    const dameAtout = c('clubs', 'Q')  // mariage atout avec roiAtout → utile
+    const state = makeState({
+      mainIA: [roiAtout, dameAtout],
+      carteOuverte: valetOuverte,
+      couleurAtout: 'clubs',
+    })
+    const carte = choisirCarteIA(state, 'difficile')
+    // Roi et Dame protégés (mariage) : la défausse "sans valeur" est vide,
+    // repli sur "sansBrisques" (ignore le statut utile) → rang minimal
+    expect(carte?.id).toBe(dameAtout.id)
+  })
+
+  it('pli sans brisque, main 100% brisques utiles : repli final sur les candidats', () => {
+    const roiOuverte = c('clubs', 'K')
+    // 3 As de même couleur que l'atout → tous "utiles" (Priorité 3) et tous brisques
+    const as1 = c('clubs', 'A', 0)
+    const as2 = c('clubs', 'A', 1)
+    const as3 = c('clubs', 'A', 2)
+    const state = makeState({
+      mainIA: [as1, as2, as3],
+      carteOuverte: roiOuverte,
+      couleurAtout: 'clubs',
+    })
+    const carte = choisirCarteIA(state, 'difficile')
+    expect(carte).not.toBeNull()
+    expect([as1.id, as2.id, as3.id]).toContain(carte?.id)
   })
 })
 

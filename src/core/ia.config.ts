@@ -40,6 +40,21 @@ export const SEUIL_PIOCHE_GRANDE = 8
 /** En-dessous de ce seuil : mode agressif (pioche ≤ PETITE → capturer brisques) */
 export const SEUIL_PIOCHE_PETITE = 4
 
+/**
+ * Équivalents basés sur la mémorisation (memoire.ts), utilisés à la place
+ * des seuils de pioche ci-dessus quand IA_MEMOIRE_AVANCEE.intermediaire
+ * est actif : au lieu de raisonner sur "combien reste-t-il de cartes en
+ * pioche", l'IA raisonne sur "combien de brisques restent encore
+ * inconnues (non vues)" — un signal plus directement pertinent pour
+ * décider de capturer agressivement ou de jouer le 7 d'atout en sécurité.
+ */
+
+/** Peu de brisques encore inconnues restantes → les capturer maintenant a de la valeur (mode agressif) */
+export const SEUIL_BRISQUES_NON_VUES_PETIT = 6
+
+/** Beaucoup de brisques encore inconnues restantes → tôt dans la manche, sûr de jouer le 7 d'atout */
+export const SEUIL_BRISQUES_NON_VUES_GRAND = 24
+
 // ── Niveau DIFFICILE — variation de style ─────────────────────
 
 /** Probabilité minimale de jouer la 2e meilleure carte (anti-prévisibilité) */
@@ -55,3 +70,29 @@ export const PROBA_VARIATION_MAX = 0.10
  * encore plus strictement de jouer ses atouts en ouverture.
  */
 export const SEUIL_GARDER_ATOUTS = 50
+
+// ── Mémorisation avancée + règles tactiques A/B ────────────────
+
+/**
+ * Active, par niveau, la mémorisation par déduction (memoire.ts),
+ * l'objectif de 16 brisques (anticipation.ts) et les règles
+ * tactiques A/B (strategies-avancees.ts).
+ *
+ * Le niveau Facile reste volontairement exclu (accessibilité aux
+ * débutants). Intermédiaire et Difficile bénéficient tous deux des
+ * règles A/B et de la mémorisation complète ; seule la profondeur
+ * d'usage diffère au niveau de l'intégration dans chaque niveau.
+ */
+export const IA_MEMOIRE_AVANCEE: Record<NiveauIA, boolean> = {
+  facile: false,
+  intermediaire: true,
+  difficile: true,
+}
+
+/**
+ * Règle a.3 (strategieGagnerPourMariage) : si aucune carte gagnante
+ * NON protégée n'existe pour remporter le pli et pouvoir annoncer un
+ * mariage, l'IA peut sacrifier une carte protégée en dernier recours —
+ * mais pas systématiquement, 1 fois sur 2 seulement.
+ */
+export const PROBA_SACRIFIER_CARTE_PROTEGEE_POUR_MARIAGE = 0.5

@@ -101,7 +101,7 @@ describe('IA Facile — aléatoire', () => {
 // ============================================================
 
 describe('IA Intermédiaire — heuristique', () => {
-  it('en ouverture : préfère les cartes sans valeur de brisque', () => {
+  it('en ouverture pré-atout : règle a.2 — joue l\'As en priorité (Phase 3)', () => {
     const as   = { ...c('spades','A',0,1), rang: 'A' as const }   // brisque
     const dix  = { ...c('hearts','10',0,2), rang: '10' as const }  // brisque
     const sept = { ...c('clubs','7',0,3), rang: '7' as const }     // sans brisque
@@ -109,14 +109,16 @@ describe('IA Intermédiaire — heuristique', () => {
 
     const state = makeState([as, dix, sept, roi])
 
-    let joueAs = 0, joueRoiOu7 = 0
+    // Règle a.2 (Phase 2 Difficile, Phase 3 Intermédiaire) : en ouverture,
+    // tant que l'atout n'est pas déclaré, l'As est TOUJOURS prioritaire
+    // (coup quasi imparable) — remplace l'ancienne prudence "éviter les
+    // brisques en ouverture", qui ne s'applique plus une fois l'atout déclaré.
+    let joueAs = 0
     for (let i = 0; i < 30; i++) {
       const carte = choisirCarteIA(state, 'intermediaire')!
-      if (carte.rang === 'A' || carte.rang === '10') joueAs++
-      else joueRoiOu7++
+      if (carte.rang === 'A') joueAs++
     }
-    // L'IA intermédiaire doit très rarement ouvrir avec un As ou 10
-    expect(joueAs).toBeLessThan(joueRoiOu7)
+    expect(joueAs).toBe(30)
   })
 
   it('en réponse à une brisque adverse : essaie de gagner', () => {
@@ -264,6 +266,14 @@ describe('choisirAnnonceIA — stratégie par niveau', () => {
       cartesIds: [],
     }))
 
+  it('aucune combinaison disponible → retourne null quel que soit le niveau', () => {
+    const { state } = initialiserPartie(CONFIG_DEFAUT)
+    const base = initialiserChampsIT4(state)
+    for (const niveau of ['facile', 'intermediaire', 'difficile'] as NiveauIA[]) {
+      expect(choisirAnnonceIA([], base, niveau)).toBeNull()
+    }
+  })
+
   it('facile : choisit aléatoirement parmi les combis', () => {
     const { state } = initialiserPartie(CONFIG_DEFAUT)
     const base = initialiserChampsIT4(state)
@@ -305,6 +315,24 @@ describe('choisirAnnonceIA — stratégie par niveau', () => {
     const combis = makeCombis(['4_as', '4_as_atout'])
     const choix = choisirAnnonceIA(combis, base, 'difficile')
     expect(choix.nom).toBe('4_as_atout')  // 200 > 100
+  })
+
+  it('difficile : "4_as" prioritaire seul disponible → tout de même retourné', () => {
+    const { state } = initialiserPartie(CONFIG_DEFAUT)
+    const base = initialiserChampsIT4(state)
+    const combis = makeCombis(['4_as'])
+    const choix = choisirAnnonceIA(combis, base, 'difficile')
+    expect(choix.nom).toBe('4_as')
+  })
+
+  it('difficile : bésigue suivant (déjà annoncé) rétrogradé sous mariage_hors_atout', () => {
+    const { state } = initialiserPartie(CONFIG_DEFAUT)
+    // Un 1er bésigue a déjà été posé : la priorité du bésigue tombe à 20,
+    // sous mariage_hors_atout (30) qui devient alors le meilleur choix
+    const base = initialiserChampsIT4({ ...state, premierBesiguePose: true })
+    const combis = makeCombis(['besigue', 'mariage_hors_atout'])
+    const choix = choisirAnnonceIA(combis, base, 'difficile')
+    expect(choix.nom).toBe('mariage_hors_atout')
   })
 
   it('une seule combi → toujours retournée quel que soit le niveau', () => {

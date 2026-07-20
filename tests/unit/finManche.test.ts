@@ -10,6 +10,7 @@ import {
   calculerBrisques,
   appliquerFinManche,
   mancheTerminee,
+  doitDeclenchemtPhaseFinale,
 } from '../../src/core/finManche'
 import { initialiserPartie } from '../../src/core/init'
 import { creerCarte } from '../../src/core/deck'
@@ -317,6 +318,32 @@ describe('mancheTerminee', () => {
     joueurs[0] = { ...joueurs[0], main: [], cartesEtalees: [] }
     joueurs[1] = { ...joueurs[1], main: [], cartesEtalees: [] }
     expect(mancheTerminee({ ...state, joueurs })).toBe(false)
+  })
+})
+
+// ============================================================
+// DÉCLENCHEMENT DE LA PHASE FINALE
+// ============================================================
+
+describe('doitDeclenchemtPhaseFinale', () => {
+  it('déclenche la phase finale : pioche vide et phase encore "libre"', () => {
+    const state = makeState({ phase: 'libre', pioche: [] })
+    expect(doitDeclenchemtPhaseFinale(state)).toBe(true)
+  })
+
+  it('ne déclenche pas si la pioche contient encore des cartes', () => {
+    const state = makeState({ phase: 'libre', pioche: [c('hearts', '7')] })
+    expect(doitDeclenchemtPhaseFinale(state)).toBe(false)
+  })
+
+  it('ne redéclenche pas si la phase est déjà "finale"', () => {
+    const state = makeState({ phase: 'finale', pioche: [] })
+    expect(doitDeclenchemtPhaseFinale(state)).toBe(false)
+  })
+
+  it('ne déclenche pas si la phase est "terminee" même pioche vide', () => {
+    const state = makeState({ phase: 'terminee', pioche: [] })
+    expect(doitDeclenchemtPhaseFinale(state)).toBe(false)
   })
 })
 

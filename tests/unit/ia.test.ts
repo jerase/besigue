@@ -6,6 +6,7 @@
 import { describe, it, expect } from 'vitest'
 import { choisirCarteIA, delaiSimule, DELAIS_IA } from '../../src/core/ia'
 import { initialiserPartie } from '../../src/core/init'
+import { creerCarte } from '../../src/core/deck'
 import { CONFIG_DEFAUT } from '../../src/types'
 import type { GameState, NiveauIA } from '../../src/types'
 
@@ -79,21 +80,42 @@ describe('choisirCarteIA', () => {
   })
 
   it('niveau facile : résultats variés sur 50 tirages (pas toujours la même carte)', () => {
-    const state = makeState()
+    // Main explicite garantissant des brisques disponibles : sans cela,
+    // une main réelle distribuée aléatoirement peut par malchance ne
+    // contenir aucun As/10, ce qui rend Comportement 3 (brisque
+    // imprudente) inopérant et strategieOuverturePreAtout déterministe
+    // à 100 %, cassant le test de façon intermittente.
+    const mainTest = [
+      creerCarte('hearts', 'A', 0, 910),
+      creerCarte('diamonds', '10', 0, 911),
+      creerCarte('clubs', 'K', 0, 912),
+      creerCarte('spades', 'Q', 0, 913),
+      creerCarte('hearts', 'J', 0, 914),
+    ]
+    const base = makeState()
+    const state = {
+      ...base,
+      joueurs: [
+        base.joueurs[0],
+        { ...base.joueurs[1], main: mainTest, cartesEtalees: [] },
+      ] as GameState['joueurs'],
+    }
     const ids = new Set<string>()
     for (let i = 0; i < 50; i++) {
       const c = choisirCarteIA(state, 'facile')
       if (c) ids.add(c.id)
     }
-    // Avec 9 cartes, on doit voir au moins 2 cartes différentes sur 50 tirages
+    // Avec 5 cartes dont des brisques, on doit voir au moins 2 cartes différentes sur 50 tirages
     expect(ids.size).toBeGreaterThan(1)
   })
 
-  it('intermédiaire : évite de poser des brisques en ouverture', () => {
+  it('intermédiaire : règle a.2 — joue l\'As en priorité en ouverture pré-atout (Phase 3)', () => {
     const state = makeState()
-    // Injecter une main IA avec uniquement As et un 7
-    const as  = { ...state.joueurs[1].main[0], rang: 'A'  as const }
-    const sept = { ...state.joueurs[1].main[1], rang: '7' as const }
+    // Injecter une main IA avec uniquement As et un 7 (cartes synthétiques,
+    // pour éviter qu'une carte issue de la distribution aléatoire soit
+    // par hasard le Joker, ce qui casserait le déterminisme du test)
+    const as  = creerCarte('hearts', 'A', 0, 900)
+    const sept = creerCarte('spades', '7', 0, 901)
     const stateTest = {
       ...state,
       joueurs: [
@@ -101,14 +123,16 @@ describe('choisirCarteIA', () => {
         { ...state.joueurs[1], main: [as, sept], cartesEtalees: [] },
       ] as typeof state.joueurs,
     }
-    // Sur plusieurs tirages, l'intermédiaire doit préférer le 7 (éviter de donner l'As)
-    let nbFois7 = 0
+    // Règle a.2 (Phase 2 Difficile, Phase 3 Intermédiaire) : en ouverture,
+    // tant que l'atout n'est pas déclaré, l'As est TOUJOURS prioritaire
+    // (coup quasi imparable) — comportement déterministe, plus de hasard.
+    // Remplace l'ancien "éviter de donner l'As" qui n'a plus cours ici.
+    let nbFoisAs = 0
     for (let i = 0; i < 20; i++) {
       const c = choisirCarteIA(stateTest, 'intermediaire')
-      if (c?.rang === '7') nbFois7++
+      if (c?.rang === 'A') nbFoisAs++
     }
-    // Le 7 doit être choisi la majorité du temps
-    expect(nbFois7).toBeGreaterThan(10)
+    expect(nbFoisAs).toBe(20)
   })
 })
 
