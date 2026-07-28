@@ -52,6 +52,69 @@ function bellotId(carte: Carte): string {
 const VB_W = 169.075
 const VB_H = 244.640
 
+// ─── Dos de carte personnalisé (indépendant du sprite Bellot) ───────────────
+// Image fournie par l'utilisateur, centrée sur un cadre aux couleurs du drapeau haïtien
+const DOS_IMAGE = '/dos-haiti.png'
+const DOS_IMAGE_W = 265
+const DOS_IMAGE_H = 259
+const DOS_IMG_TARGET_W = 120
+const DOS_IMG_TARGET_H = DOS_IMG_TARGET_W * (DOS_IMAGE_H / DOS_IMAGE_W)
+const DOS_IMG_X = (VB_W - DOS_IMG_TARGET_W) / 2
+const DOS_IMG_Y = VB_H / 2 - DOS_IMG_TARGET_H / 2
+
+const CarteDosPersonnalise: React.FC = () => (
+ <>
+ <defs>
+ <clipPath id="carteDosClip">
+ <rect x="2" y="2" width={VB_W - 4} height={VB_H - 4} rx="10" ry="10" />
+ </clipPath>
+ </defs>
+ <rect x="0" y="0" width={VB_W} height={VB_H} rx="12" ry="12" fill="#0b1c4a" />
+ <g clipPath="url(#carteDosClip)">
+ <rect x="0" y="0" width={VB_W} height={VB_H / 2} fill="#00209F" />
+ <rect x="0" y={VB_H / 2} width={VB_W} height={VB_H / 2} fill="#D21034" />
+ <rect
+ x={DOS_IMG_X - 10}
+ y={DOS_IMG_Y - 10}
+ width={DOS_IMG_TARGET_W + 20}
+ height={DOS_IMG_TARGET_H + 20}
+ rx="10"
+ fill="#ffffff"
+ opacity="0.95"
+ />
+ <image
+ href={DOS_IMAGE}
+ x={DOS_IMG_X}
+ y={DOS_IMG_Y}
+ width={DOS_IMG_TARGET_W}
+ height={DOS_IMG_TARGET_H}
+ preserveAspectRatio="xMidYMid meet"
+ />
+ <rect
+ x="10"
+ y="10"
+ width={VB_W - 20}
+ height={VB_H - 20}
+ rx="6"
+ fill="none"
+ stroke="#F1C40F"
+ strokeWidth="1.5"
+ />
+ </g>
+ <rect
+ x="2"
+ y="2"
+ width={VB_W - 4}
+ height={VB_H - 4}
+ rx="10"
+ ry="10"
+ fill="none"
+ stroke="#ffffff"
+ strokeWidth="2"
+ />
+ </>
+)
+
 export const CarteComponent: React.FC<CarteProps> = ({
  carte, onClick, onDoubleClick, taille = 'md', className = '',
 }) => {
@@ -77,7 +140,7 @@ export const CarteComponent: React.FC<CarteProps> = ({
  const go = () => { if (carte.etat !== 'disabled') onClick?.(carte) }
  const dbl = () => { if (carte.etat !== 'disabled') onDoubleClick?.(carte) }
 
- const cardId = estCachee ? 'back' : bellotId(carte)
+ const cardId = bellotId(carte)
 
  return (
  <div
@@ -98,7 +161,9 @@ export const CarteComponent: React.FC<CarteProps> = ({
  aria-hidden="true"
  style={{ display: 'block' }}
  >
- <use href={`/svg-cards.svg#${cardId}`} x="0" y="0" width="100%" height="100%" />
+ {estCachee
+ ? <CarteDosPersonnalise />
+ : <use href={`/svg-cards.svg#${cardId}`} x="0" y="0" width="100%" height="100%" />}
  </svg>
  </div>
 )
