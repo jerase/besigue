@@ -65,6 +65,72 @@ function assertIACompatible(state: GameState, fonction: string): void {
 }
 
 /**
+ * Quand l'IA joue une carte de sa main dont une carte « semblable »
+ * (même rang, même couleur) existe déjà parmi ses cartes étalées, elle
+ * doit préférer jouer la carte étalée plutôt que celle de la main — la
+ * carte en main reste disponible pour de futures combinaisons, alors que
+ * l'étalée est déjà « exposée » et n'a plus rien à protéger en général.
+ *
+ * Exception : si la carte étalée fait partie d'un mariage d'atout encore
+ * ACTIF (state.mariagesAtoutActifs), on ne la sacrifie pas — la jouer
+ * romprait ce mariage (gererCassureMariageAtout) et ferait perdre son
+ * éligibilité comme prérequis de la quinte. Dans ce cas précis, l'IA
+ * joue plutôt la carte de sa main (le choix d'origine), pour préserver
+ * le mariage d'atout étalé intact.
+ *
+ * S'applique uniquement pour les niveaux intermédiaire et difficile —
+ * n'est jamais appelée pour le niveau facile (cf. switch ci-dessous).
+ */
+export function preferEtaleeSiPossible(
+  carteChoisie: Carte,
+  state: GameState,
+  candidats: Carte[]
+): Carte {
+  if (carteChoisie.estJoker) return carteChoisie // pas de « semblable » pour un Joker
+
+  const ia = state.joueurs[1]
+
+  // La carte choisie est déjà une carte étalée → rien à changer
+  const choisieEstDejaEtalee = ia.cartesEtalees.some(e => e.id === carteChoisie.id)
+  if (choisieEstDejaEtalee) return carteChoisie
+
+  // Chercher une carte étalée « semblable » (même rang + même couleur)
+  // parmi les candidats légaux (garantit que le remplacement reste jouable)
+  const semblableEtalee = candidats.find(c =>
+    !c.estJoker &&
+    c.id !== carteChoisie.id &&
+    c.rang === carteChoisie.rang &&
+    c.couleur === carteChoisie.couleur &&
+    ia.cartesEtalees.some(e => e.id === c.id)
+  )
+  if (!semblableEtalee) return carteChoisie
+
+  // Exception : mariage d'atout encore actif → préserver l'étalée, jouer la main
+  const couleurAtout = state.couleurAtout
+  const estRoiOuDameAtout = couleurAtout !== null &&
+    carteChoisie.couleur === couleurAtout &&
+    (carteChoisie.rang === 'K' || carteChoisie.rang === 'Q')
+
+  if (estRoiOuDameAtout) {
+    const mariagesActifs = state.mariagesAtoutActifs?.[1] ?? []
+    const etaleeProtegeeParMariage = mariagesActifs.some(paire => paire.includes(semblableEtalee.id))
+    if (etaleeProtegeeParMariage) {
+      logger.debug(
+        'IA',
+        `PréférerÉtalée — mariage d'atout actif préservé, main jouée à la place → ${carteChoisie.rang}${carteChoisie.couleur}`
+      )
+      return carteChoisie
+    }
+  }
+
+  logger.debug(
+    'IA',
+    `PréférerÉtalée — carte étalée semblable jouée à la place de la main → ${semblableEtalee.rang}${semblableEtalee.couleur}`
+  )
+  return semblableEtalee
+}
+
+/**
  * Point d'entrée principal : retourne la carte que l'IA joue.
  * Retourne null si aucun candidat n'est disponible.
  */
@@ -100,8 +166,8 @@ export function choisirCarteIA(state: GameState, niveau: NiveauIA): Carte | null
 
   switch (niveau) {
     case 'facile':        return iaFacile(candidats, state)
-    case 'intermediaire': return iaIntermediaire(candidats, state)
-    case 'difficile':     return iaDifficile(candidats, state)
+    case 'intermediaire': return preferEtaleeSiPossible(iaIntermediaire(candidats, state), state, candidats)
+    case 'difficile':     return preferEtaleeSiPossible(iaDifficile(candidats, state), state, candidats)
   }
 }
 
