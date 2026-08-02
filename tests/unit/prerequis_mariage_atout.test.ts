@@ -99,7 +99,7 @@ describe('Prérequis mariage_Atout — AVANT le premier mariage', () => {
       roi, dame, c(atout, 'A', 0, 3), c(atout, '10', 0, 4), c(atout, 'J', 0, 5),
     ], 0, {
       couleurAtout: atout,
-      mariagesAtoutActifs: { 0: [[roi.id, dame.id]], 1: [] },
+      mariagesAtoutActifs: [[[roi.id, dame.id]], []],
       // annonces vides → aucun mariage_Atout officiellement posé
     })
 

@@ -34,6 +34,23 @@ export function sauvegarder(
  }
 }
 
+// ── Migration Étape 4 (Phase 1) ─────────────────────────────────
+//
+// mariagesAtoutActifs et combisEnAttente sont passés de Record<0|1,T>
+// à T[] (tableau indexé par siège). Une sauvegarde localStorage créée
+// avant ce changement contient encore l'ancienne forme objet
+// { 0: [...], 1: [...] }. Cette fonction migre l'une ou l'autre forme
+// (ou l'absence du champ, pour une sauvegarde encore plus ancienne)
+// vers la forme tableau attendue par le code actuel.
+function migrerVersTableauParSiege<T>(champ: unknown): T[][] {
+ if (Array.isArray(champ)) return champ as T[][]
+ if (champ && typeof champ === 'object') {
+ const obj = champ as Record<string, T[]>
+ return [obj[0] ?? obj['0'] ?? [], obj[1] ?? obj['1'] ?? []]
+ }
+ return [[], []]
+}
+
 // ── Chargement ────────────────────────────────────────────────
 
 export function chargerSauvegarde(): Sauvegarde | null {
@@ -47,8 +64,13 @@ export function chargerSauvegarde(): Sauvegarde | null {
  }
  if (!save.state.annonces) save.state.annonces = []
  if (!save.state.usagesCartes) save.state.usagesCartes = []
- if (!save.state.mariagesAtoutActifs) save.state.mariagesAtoutActifs = { 0: [], 1: [] }
- if (!save.state.combisEnAttente) save.state.combisEnAttente = { 0: [], 1: [] }
+ // Étape 4 (Phase 1) : mariagesAtoutActifs/combisEnAttente sont désormais des
+ // tableaux indexés par siège (auparavant Record<0|1,T>). Une sauvegarde plus
+ // ancienne peut encore contenir l'ancienne forme objet { 0: [...], 1: [...] }
+ // — un simple test de présence (`if (!champ)`) ne la détecterait pas, car un
+ // objet non-vide est "vrai". Migration explicite par forme, pas seulement par absence.
+ save.state.mariagesAtoutActifs = migrerVersTableauParSiege(save.state.mariagesAtoutActifs)
+ save.state.combisEnAttente = migrerVersTableauParSiege(save.state.combisEnAttente)
  logger.info('SAVE', 'Sauvegarde chargée', { partieId: save.state.partieId, timestamp: save.timestamp })
  return save
  } catch (err) {

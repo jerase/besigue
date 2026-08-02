@@ -33,7 +33,7 @@ import {
 import {
   strategieBrisqueGagnante, strategieOuvrirAvecAs,
   strategieGagnerPourMariage, strategieOuvrirJokerSansMariage,
-  strategieOuvrirCouleurEpuisee,
+  strategieOuvrirCouleurEpuisee, strategieEviterAsEtalesAdverse,
 } from './strategies-avancees'
 import { brisquesNonVuesRestantes } from './memoire'
 
@@ -67,6 +67,16 @@ export function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
     if (ouvrirJoker) {
       logger.debug('IA', `Intermédiaire — [A/B] OuvrirJokerSansMariage → ${ouvrirJoker.rang}${ouvrirJoker.couleur}`)
       return ouvrirJoker
+    }
+
+    // Éviter les As étalés non-atout de l'humain — information CERTAINE
+    // (cartes visibles), donc prioritaire sur l'estimation probabiliste
+    // de OuvrirCouleurÉpuisée (b.2) ci-dessous, qui sinon capterait
+    // systématiquement tout choix d'ouverture non-atout avant d'y arriver.
+    const eviterAsEtales = strategieEviterAsEtalesAdverse(candidats, state, cartesUtilesAuxCombis(state, 1))
+    if (eviterAsEtales) {
+      logger.debug('IA', `Intermédiaire — ÉviterAsÉtalésAdverse → ${eviterAsEtales.rang}${eviterAsEtales.couleur}`)
+      return eviterAsEtales
     }
 
     const ouvrirCouleurEpuisee = strategieOuvrirCouleurEpuisee(candidats, state) // b.2

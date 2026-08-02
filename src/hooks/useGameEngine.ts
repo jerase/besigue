@@ -9,9 +9,9 @@
 // ============================================================
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import type { GameConfig, GameState, ActionJeu, CombinaisonDisponible } from '../types'
+import type { GameConfig, GameState, ActionJeu, CombinaisonDisponible, SiegeId, SourceDecision } from '../types'
 import { initialiserPartie, piocher } from '../core/init'
-import { jouerCarte, appliquerPli } from '../core/pli'
+import { jouerCarte, appliquerPli, pliEstComplet } from '../core/pli'
 import { detecterCombinaisonsDisponibles, appliquerAnnonce, gererCassureMariageAtout } from '../core/combinaisons'
 import { appliquerFinManche, mancheTerminee, initialiserNouvelleManche } from '../core/finManche'
 import type { ResultatManche } from '../core/finManche'
@@ -56,6 +56,35 @@ export interface UseGameEngineReturn {
   annoncer: (combi: CombinaisonDisponible) => void
   passerAnnonce: () => void
   lancerNouvelleManche: () => void
+}
+
+/**
+ * Vide les combinaisons en attente du siège 0 (humain), en conservant
+ * celles des autres sièges — comportement historique préservé tel quel.
+ * Étape 4 (Phase 1) : combisEnAttente est désormais un tableau indexé
+ * par siège (auparavant Record<0|1,T>).
+ */
+function reinitialiserCombisEnAttenteSiege0(
+ combis: GameState['combisEnAttente'] | undefined
+): GameState['combisEnAttente'] {
+ const copie = [...(combis ?? [[], []])]
+ copie[0] = []
+ return copie
+}
+
+/**
+ * Détermine qui contrôle les décisions d'un siège donné, au tour de ce
+ * siège. Étape 7 (Phase 1) : dérivée aujourd'hui de Joueur.type — le
+ * comportement du mode actuel (siège 0 = humain-local, siège 1 = ia)
+ * reste strictement identique. Aucune source ne retourne 'distant' pour
+ * l'instant : c'est le point d'intégration prévu pour la Phase 2, qui
+ * branchera un siège sur un transport réseau plutôt que sur l'IA ou la
+ * saisie locale, sans avoir à retoucher la logique d'orchestration
+ * ci-dessous (lancerTourSuivant, proposerAnnonces).
+ */
+export function sourceDecision(s: GameState, siege: SiegeId): SourceDecision {
+ const joueur = s.joueurs[siege]
+ return joueur.type === 'humain' ? 'humain-local' : 'ia'
 }
 
 export function useGameEngine(): UseGameEngineReturn {
@@ -132,7 +161,7 @@ export function useGameEngine(): UseGameEngineReturn {
       return
     }
 
-    if (vainqueur === 0) {
+    if (sourceDecision(s, vainqueur) === 'humain-local') {
       const combis = detecterCombinaisonsDisponibles(s, 0)
       if (combis.length > 0) {
         setCombisDisponibles(combis)
@@ -145,13 +174,15 @@ export function useGameEngine(): UseGameEngineReturn {
       const combis = detecterCombinaisonsDisponibles(s, 1)
       if (combis.length > 0) {
         const meilleure = choisirAnnonceIA(combis, s, cfg.niveauIA)
-        const stateApresAnnonce = appliquerAnnonce(s, 1, meilleure)
-        const h2: ActionJeu[] = [...h, { type: 'ANNONCER' as const, joueur: 1 as const, combinaison: meilleure.nom, points: meilleure.points }]
-        logger.info('ENGINE', `IA annonce ${meilleure.nom} +${meilleure.points} (${cfg.niveauIA})`)
-        timerRef.current = setTimeout(() => {
-          effectuerPioche(stateApresAnnonce, cfg, h2, vainqueur)
-        }, 600)
-        return
+        if (meilleure) {
+          const stateApresAnnonce = appliquerAnnonce(s, 1, meilleure)
+          const h2: ActionJeu[] = [...h, { type: 'ANNONCER' as const, joueur: 1 as const, combinaison: meilleure.nom, points: meilleure.points }]
+          logger.info('ENGINE', `IA annonce ${meilleure.nom} +${meilleure.points} (${cfg.niveauIA})`)
+          timerRef.current = setTimeout(() => {
+            effectuerPioche(stateApresAnnonce, cfg, h2, vainqueur)
+          }, 600)
+          return
+        }
       }
     }
 
@@ -205,7 +236,7 @@ export function useGameEngine(): UseGameEngineReturn {
       return
     }
 
-    if (joueurActif === 0) {
+    if (sourceDecision(s, joueurActif) === 'humain-local') {
       setPhaseUI('attente_joueur')
       setMessageInfo('Votre tour — Jouez une carte')
     } else {
@@ -248,8 +279,7 @@ export function useGameEngine(): UseGameEngineReturn {
         setIaReflechit(false)
         setState(stateApres)
 
-        const pliComplet = stateApres.pliEnCours.carteJoueur0 !== null &&
-          stateApres.pliEnCours.carteJoueur1 !== null
+        const pliComplet = pliEstComplet(stateApres.pliEnCours)
 
         if (pliComplet) {
           timerRef.current = setTimeout(() => resoudrePliComplet(stateApres, cfg, h), 2000)
@@ -280,8 +310,7 @@ export function useGameEngine(): UseGameEngineReturn {
     setMessageInfo('')
     setState(newState)
 
-    const pliComplet = newState.pliEnCours.carteJoueur0 !== null &&
-      newState.pliEnCours.carteJoueur1 !== null
+    const pliComplet = pliEstComplet(newState.pliEnCours)
 
     if (pliComplet) {
       resoudrePliComplet(newState, config, history)
@@ -299,7 +328,7 @@ export function useGameEngine(): UseGameEngineReturn {
     }]
     const stateNettoye: GameState = {
       ...newState,
-      combisEnAttente: { ...(newState.combisEnAttente ?? { 0: [], 1: [] }), 0: [] },
+      combisEnAttente: reinitialiserCombisEnAttenteSiege0(newState.combisEnAttente),
     }
 
     setState(stateNettoye)
@@ -321,7 +350,7 @@ export function useGameEngine(): UseGameEngineReturn {
     setMessageInfo('')
     const stateNettoye: GameState = {
       ...state,
-      combisEnAttente: { ...(state.combisEnAttente ?? { 0: [], 1: [] }), 0: [] },
+      combisEnAttente: reinitialiserCombisEnAttenteSiege0(state.combisEnAttente),
     }
     setState(stateNettoye)
     effectuerPioche(stateNettoye, config, history, stateNettoye.joueurActif as 0 | 1)
@@ -394,8 +423,8 @@ export function useGameEngine(): UseGameEngineReturn {
     if (initialiseRef.current) return
     initialiseRef.current = true
 
-    if (state && config && nav.ecran === 'table' && phaseUI === 'attente_joueur' && state.joueurActif === 1) {
-      lancerTourSuivant(state, config, history, 1)
+    if (state && config && nav.ecran === 'table' && phaseUI === 'attente_joueur' && sourceDecision(state, state.joueurActif) !== 'humain-local') {
+      lancerTourSuivant(state, config, history, state.joueurActif)
     }
   })
 

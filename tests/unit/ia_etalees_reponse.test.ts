@@ -52,6 +52,7 @@ function makeState(opts: {
       carteJoueur0: carteOuverte,
       carteJoueur1: null,
       joueurOuvreur: 0,
+cartes: [carteOuverte, null],
     },
     pioche: Array.from({ length: nbPioche }, () => c('clubs', '7')),
   })
@@ -400,7 +401,7 @@ describe('strategieEtaleesEnReponse — tests unitaires directs (isolation)', ()
     const base = initialiserChampsIT4({
       ...state,
       couleurAtout: opts.couleurAtout,
-      pliEnCours: { carteJoueur0: opts.carteOuverte, carteJoueur1: null, joueurOuvreur: 0 },
+      pliEnCours: { carteJoueur0: opts.carteOuverte, carteJoueur1: null, joueurOuvreur: 0, cartes: [opts.carteOuverte, null] },
     })
     const joueurs = [...base.joueurs] as typeof base.joueurs
     joueurs[1] = { ...joueurs[1], main: [], cartesEtalees: opts.etaleesIA }

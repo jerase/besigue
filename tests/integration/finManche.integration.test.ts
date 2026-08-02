@@ -22,7 +22,7 @@ function makeState(scoreJ0: number, scoreJ1: number, brisquesJ0: number, brisque
   const joueurs = [...base.joueurs] as typeof base.joueurs
   joueurs[0] = { ...joueurs[0], main: [], cartesEtalees: [], marquePoints: scoreJ0, pileRemportee: pileJ0 }
   joueurs[1] = { ...joueurs[1], main: [], cartesEtalees: [], marquePoints: scoreJ1, pileRemportee: pileJ1 }
-  return { ...base, joueurs, combisEnAttente: { 0: [], 1: [] } }
+  return { ...base, joueurs, combisEnAttente: [[], []] }
 }
 
 describe('IT-5 intégration — scénarios de fin de manche', () => {

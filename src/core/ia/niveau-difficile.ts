@@ -2,12 +2,15 @@
 // NIVEAU DIFFICILE — Stratégique avancé
 // ============================================================
 //
+// Phase finale (pioche vide) — remplace l'INTÉGRALITÉ de la décision
+//        par une recherche minimax à information complète (minimaxFinale.ts).
+//        Toutes les règles ci-dessous (A/B, D.1, D.2, D.4) ne s'appliquent
+//        qu'AVANT que la pioche ne soit vide.
 // A/B — Règles tactiques mémorisation + anticipation (priorité absolue,
 //        avant toute la cascade existante — a.1→a.4, b.1→b.2)
 // D.1 — Mémorisation RÉELLE des cartes vues (memoire.ts, par déduction)
 // D.2 — Gestion du score de partie (modes prudent / agressif),
 //        enrichie par l'objectif de 16 brisques (anticipation.ts)
-// D.3 — Phase finale dédiée (couper librement)
 // D.4 — Variation de style (anti-prévisibilité 5-10%)
 
 import type { Carte, GameState } from '../../types'
@@ -26,10 +29,11 @@ import {
 import {
   strategieBrisqueGagnante, strategieOuvrirAvecAs,
   strategieGagnerPourMariage, strategieOuvrirJokerSansMariage,
-  strategieOuvrirCouleurEpuisee,
+  strategieOuvrirCouleurEpuisee, strategieEviterAsEtalesAdverse,
 } from './strategies-avancees'
 import { brisquesNonVuesRestantes } from './memoire'
 import { objectifBrisqueAtteignable } from './anticipation'
+import { choisirCarteMinimaxFinale } from './minimaxFinale'
 
 /** Retourne la 2e meilleure carte selon une probabilité aléatoire */
 function appliquerVariation(cartes: Carte[]): Carte | null {
@@ -67,6 +71,17 @@ export function iaDifficile(candidats: Carte[], state: GameState): Carte {
   const piocheRestante = state.pioche.length
   const [manchesIA, manchesHumain] = state.compteurManches ?? [0, 0]
 
+  // ── Phase finale (pioche vide) — remplace l'INTÉGRALITÉ de la
+  // décision (ouverture ET réponse) par une recherche minimax à
+  // information complète (cf. minimaxFinale.ts) : à partir de ce
+  // point, la main adverse est déductible avec certitude, donc un
+  // vrai arbre de jeu exploré exhaustivement (élagage alpha-bêta)
+  // prime sur toute heuristique. Aucune règle ci-dessous (A/B, D.1 à
+  // D.4) ne s'applique plus une fois cette condition atteinte.
+  if (piocheRestante === 0) {
+    return choisirCarteMinimaxFinale(candidats, state)
+  }
+
   // ── Règles tactiques A/B — priorité absolue sur toute la cascade ──
   if (IA_MEMOIRE_AVANCEE.difficile) {
     const brisqueGagnante = strategieBrisqueGagnante(candidats, state) // a.1 / b.1
@@ -91,6 +106,16 @@ export function iaDifficile(candidats: Carte[], state: GameState): Carte {
     if (ouvrirJoker) {
       logger.debug('IA', `Difficile — [A/B] OuvrirJokerSansMariage → ${ouvrirJoker.rang}${ouvrirJoker.couleur}`)
       return ouvrirJoker
+    }
+
+    // Éviter les As étalés non-atout de l'humain — information CERTAINE
+    // (cartes visibles), donc prioritaire sur l'estimation probabiliste
+    // de OuvrirCouleurÉpuisée (b.2) ci-dessous, qui sinon capterait
+    // systématiquement tout choix d'ouverture non-atout avant d'y arriver.
+    const eviterAsEtales = strategieEviterAsEtalesAdverse(candidats, state, cartesUtilesAuxCombis(state, 1))
+    if (eviterAsEtales) {
+      logger.debug('IA', `Difficile — ÉviterAsÉtalésAdverse → ${eviterAsEtales.rang}${eviterAsEtales.couleur}`)
+      return eviterAsEtales
     }
 
     const ouvrirCouleurEpuisee = strategieOuvrirCouleurEpuisee(candidats, state) // b.2
@@ -144,8 +169,6 @@ export function iaDifficile(candidats: Carte[], state: GameState): Carte {
     ? brisquesNonVuesRestantes(state, 1)
     : ancienComptageBrisquesRestantes(state, carteOuverte)
 
-  const estPhaseFinale = piocheRestante === 0
-
   // Couper le 10
   if (carteOuverte) {
     const coupe = strategieCouper10(candidats, carteOuverte, state)
@@ -163,16 +186,6 @@ export function iaDifficile(candidats: Carte[], state: GameState): Carte {
       const gagnants = candidatsGagnants(candidats, carteOuverte, couleurAtout, 1)
 
       if (gagnants.length > 0) {
-        // D.3 : Phase finale → couper librement
-        if (estPhaseFinale) {
-          logger.debug('IA', 'Difficile — Phase finale : couper librement')
-          const nonUtiles = gagnants.filter(c => !cartesUtiles.has(c.id))
-          const meilleur = carteAvecRangMinimal(nonUtiles.length > 0 ? nonUtiles : gagnants)
-          const tries = [...gagnants].sort((a, b) => ORDRE_RANGS[a.rang] - ORDRE_RANGS[b.rang])
-          const variation = appliquerVariation(tries)
-          return (modePrudent || !variation) ? meilleur : variation!
-        }
-
         // D.2 : Mode agressif
         if (modeAgressif) {
           logger.debug('IA', 'Difficile — Mode AGRESSIF : gagner la brisque')

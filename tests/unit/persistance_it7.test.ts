@@ -11,6 +11,7 @@ import {
 import type { EntreeHistorique } from '../../src/utils/persistence'
 import { initialiserPartie } from '../../src/core/init'
 import { CONFIG_DEFAUT } from '../../src/types'
+import type { GameState } from '../../src/types'
 
 // ── Mock localStorage ─────────────────────────────────────────
 const store: Record<string, string> = {}
@@ -84,9 +85,34 @@ describe('Sauvegarde et chargement', () => {
     const save = chargerSauvegarde()
     expect(save).not.toBeNull()
     expect(save!.state.annonces).toEqual([])
-    expect(save!.state.combisEnAttente).toEqual({ 0: [], 1: [] })
+    expect(save!.state.combisEnAttente).toEqual([[], []])
     expect(save!.state.usagesCartes).toEqual([])
-    expect(save!.state.mariagesAtoutActifs).toEqual({ 0: [], 1: [] })
+    expect(save!.state.mariagesAtoutActifs).toEqual([[], []])
+  })
+
+  it('Étape 4 (Phase 1) — ancienne sauvegarde en forme objet {0,1} avec contenu migrée vers tableau, sans perte', () => {
+    const { state } = initialiserPartie(CONFIG_DEFAUT)
+    // Simule une sauvegarde créée AVANT l'étape 4 : mariagesAtoutActifs/combisEnAttente
+    // étaient alors des objets { 0: [...], 1: [...] }, pas des tableaux. Contrairement
+    // au test précédent (champs absents), ici les champs sont présents avec du contenu
+    // réel — le cas que `if (!champ)` ne détectait pas avant la correction.
+    const ancienFormatObjet = {
+      ...state,
+      mariagesAtoutActifs: { 0: [['roi-id', 'dame-id']], 1: [] } as unknown as GameState['mariagesAtoutActifs'],
+      combisEnAttente: { 0: [], 1: [{ nom: 'besigue', points: 40, cartesIds: ['a', 'b'] }] } as unknown as GameState['combisEnAttente'],
+    }
+    store['besigue_save'] = JSON.stringify({ version: '1.0', timestamp: Date.now(), config: CONFIG_DEFAUT, state: ancienFormatObjet, history: [] })
+
+    const save = chargerSauvegarde()
+    expect(save).not.toBeNull()
+    // Migrée en tableau, ET le contenu du siège 0/1 est préservé (pas juste réinitialisé à vide)
+    expect(Array.isArray(save!.state.mariagesAtoutActifs)).toBe(true)
+    expect(save!.state.mariagesAtoutActifs[0]).toEqual([['roi-id', 'dame-id']])
+    expect(save!.state.mariagesAtoutActifs[1]).toEqual([])
+
+    expect(Array.isArray(save!.state.combisEnAttente)).toBe(true)
+    expect(save!.state.combisEnAttente[0]).toEqual([])
+    expect(save!.state.combisEnAttente[1]).toEqual([{ nom: 'besigue', points: 40, cartesIds: ['a', 'b'] }])
   })
 
   it('132 cartes conservées après sauvegarder/charger', () => {

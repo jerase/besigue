@@ -31,7 +31,7 @@ function baseState(): GameState {
     ...base,
     joueurs,
     pioche: [],
-    pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0 },
+    pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0, cartes: [null, null] },
   }
 }
 
@@ -74,7 +74,7 @@ describe('cartesNonVues — déduction par élimination', () => {
     const state = baseState()
     const withPli = {
       ...state,
-      pliEnCours: { carteJoueur0: c('diamonds', 'Q', 0), carteJoueur1: null, joueurOuvreur: 0 as const },
+      pliEnCours: { carteJoueur0: c('diamonds', 'Q', 0), carteJoueur1: null, joueurOuvreur: 0 as const, cartes: [c('diamonds', 'Q', 0), null] },
     }
     expect(quantiteNonVue(withPli, 'Q', 'diamonds')).toBe(3)
   })
@@ -174,7 +174,7 @@ describe('brisquesJoueesParCouleur', () => {
     const withEtalee = {
       ...state,
       joueurs: [state.joueurs[0], j1] as typeof state.joueurs,
-      pliEnCours: { carteJoueur0: c('clubs', '10', 0), carteJoueur1: null, joueurOuvreur: 0 as const },
+      pliEnCours: { carteJoueur0: c('clubs', '10', 0), carteJoueur1: null, joueurOuvreur: 0 as const, cartes: [c('clubs', '10', 0), null] },
     }
     expect(brisquesJoueesParCouleur(withEtalee).clubs).toBe(2)
   })

@@ -47,6 +47,7 @@ function makeState(opts: {
       carteJoueur0: carteOuverte,
       carteJoueur1: null,
       joueurOuvreur: 0,
+cartes: [carteOuverte, null],
     },
     pioche: Array.from({ length: nbPioche }, () => c('spades', '7')),
   })

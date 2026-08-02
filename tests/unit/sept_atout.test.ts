@@ -37,7 +37,7 @@ function makeState(
   return {
     ...state, joueurs,
     joueurActif,
-    pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: joueurActif },
+    pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: joueurActif, cartes: [null, null] },
     annonces: [annonceAtout, ...annoncesSupp],
   }
 }
@@ -155,7 +155,7 @@ describe('Sept d\'atout — +10 pts automatiques dans appliquerPli', () => {
       ...base,
       couleurAtout: atout,
       annonces: [{ nom: 'mariage_atout', points: 40, cartesIds: [`${atout}-K-9-900`, `${atout}-Q-9-901`], joueurId: 1, mancheNumero: 1 }],
-      pliEnCours: { carteJoueur0: { ...sept, faceUp: true, etat: 'played' }, carteJoueur1: { ...carteIA, faceUp: true, etat: 'played' }, joueurOuvreur: 0 },
+      pliEnCours: { carteJoueur0: { ...sept, faceUp: true, etat: 'played' }, carteJoueur1: { ...carteIA, faceUp: true, etat: 'played' }, joueurOuvreur: 0, cartes: [{ ...sept, faceUp: true, etat: 'played' }, { ...carteIA, faceUp: true, etat: 'played' }] },
       joueurs: [
         { ...base.joueurs[0], main: [], marquePoints: 0 },
         { ...base.joueurs[1], main: [], marquePoints: 0 },
@@ -178,7 +178,7 @@ describe('Sept d\'atout — +10 pts automatiques dans appliquerPli', () => {
       ...base,
       couleurAtout: atout,
       annonces: [{ nom: 'mariage_atout', points: 40, cartesIds: [`${atout}-K-9-900`, `${atout}-Q-9-901`], joueurId: 1, mancheNumero: 1 }],
-      pliEnCours: { carteJoueur0: { ...carteHumain, faceUp: true, etat: 'played' }, carteJoueur1: { ...sept, faceUp: true, etat: 'played' }, joueurOuvreur: 0 },
+      pliEnCours: { carteJoueur0: { ...carteHumain, faceUp: true, etat: 'played' }, carteJoueur1: { ...sept, faceUp: true, etat: 'played' }, joueurOuvreur: 0, cartes: [{ ...carteHumain, faceUp: true, etat: 'played' }, { ...sept, faceUp: true, etat: 'played' }] },
       joueurs: [
         { ...base.joueurs[0], main: [], marquePoints: 0 },
         { ...base.joueurs[1], main: [], marquePoints: 0 },
@@ -201,7 +201,7 @@ describe('Sept d\'atout — +10 pts automatiques dans appliquerPli', () => {
       ...base,
       couleurAtout: atout,
       annonces: [{ nom: 'mariage_atout', points: 40, cartesIds: [`${atout}-K-9-900`, `${atout}-Q-9-901`], joueurId: 1, mancheNumero: 1 }],
-      pliEnCours: { carteJoueur0: { ...carte0, faceUp: true, etat: 'played' }, carteJoueur1: { ...carte1, faceUp: true, etat: 'played' }, joueurOuvreur: 0 },
+      pliEnCours: { carteJoueur0: { ...carte0, faceUp: true, etat: 'played' }, carteJoueur1: { ...carte1, faceUp: true, etat: 'played' }, joueurOuvreur: 0, cartes: [{ ...carte0, faceUp: true, etat: 'played' }, { ...carte1, faceUp: true, etat: 'played' }] },
       joueurs: [
         { ...base.joueurs[0], main: [], marquePoints: 0 },
         { ...base.joueurs[1], main: [], marquePoints: 0 },
@@ -220,7 +220,7 @@ describe('Sept d\'atout — +10 pts automatiques dans appliquerPli', () => {
     const { state: base } = initialiserPartie(CONFIG_DEFAUT)
     const state = {
       ...initialiserChampsIT4({ ...base, couleurAtout: null }),
-      pliEnCours: { carteJoueur0: { ...sept, faceUp: true, etat: 'played' as const }, carteJoueur1: { ...autre, faceUp: true, etat: 'played' as const }, joueurOuvreur: 0 as const },
+      pliEnCours: { carteJoueur0: { ...sept, faceUp: true, etat: 'played' as const }, carteJoueur1: { ...autre, faceUp: true, etat: 'played' as const }, joueurOuvreur: 0 as const, cartes: [{ ...sept, faceUp: true, etat: 'played' as const }, { ...autre, faceUp: true, etat: 'played' as const }] },
       joueurs: [
         { ...base.joueurs[0], main: [], marquePoints: 0 },
         { ...base.joueurs[1], main: [], marquePoints: 0 },
@@ -242,7 +242,7 @@ describe('Sept d\'atout — +10 pts automatiques dans appliquerPli', () => {
       ...base,
       couleurAtout: atout,
       annonces: [{ nom: 'mariage_atout', points: 40, cartesIds: [`${atout}-K-9-900`, `${atout}-Q-9-901`], joueurId: 1, mancheNumero: 1 }],
-      pliEnCours: { carteJoueur0: { ...septNonAtout, faceUp: true, etat: 'played' }, carteJoueur1: { ...autre, faceUp: true, etat: 'played' }, joueurOuvreur: 0 },
+      pliEnCours: { carteJoueur0: { ...septNonAtout, faceUp: true, etat: 'played' }, carteJoueur1: { ...autre, faceUp: true, etat: 'played' }, joueurOuvreur: 0, cartes: [{ ...septNonAtout, faceUp: true, etat: 'played' }, { ...autre, faceUp: true, etat: 'played' }] },
       joueurs: [
         { ...base.joueurs[0], main: [], marquePoints: 0 },
         { ...base.joueurs[1], main: [], marquePoints: 0 },

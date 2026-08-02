@@ -136,6 +136,7 @@ describe('IA Intermédiaire — heuristique', () => {
         carteJoueur0: { ...carteHumain, faceUp: true, etat: 'played' },
         carteJoueur1: null,
         joueurOuvreur: 0,
+        cartes: [{ ...carteHumain, faceUp: true, etat: 'played' }, null],
       },
     })
 
@@ -189,6 +190,7 @@ describe('IA Difficile — stratégique', () => {
         carteJoueur0: { ...carteHumain, faceUp: true, etat: 'played' },
         carteJoueur1: null,
         joueurOuvreur: 0,
+        cartes: [{ ...carteHumain, faceUp: true, etat: 'played' }, null],
       },
     })
 
@@ -211,6 +213,7 @@ describe('IA Difficile — stratégique', () => {
         carteJoueur0: { ...carteHumain, faceUp: true, etat: 'played' },
         carteJoueur1: null,
         joueurOuvreur: 0,
+        cartes: [{ ...carteHumain, faceUp: true, etat: 'played' }, null],
       },
     })
 
@@ -240,6 +243,7 @@ describe('IA en phase finale — obligation de couleur', () => {
         carteJoueur0: { ...carteHumain, faceUp: true, etat: 'played' },
         carteJoueur1: null,
         joueurOuvreur: 0,
+        cartes: [{ ...carteHumain, faceUp: true, etat: 'played' }, null],
       },
     })
 
@@ -280,7 +284,7 @@ describe('choisirAnnonceIA — stratégie par niveau', () => {
     const combis = makeCombis(['mariage_atout', 'mariage_hors_atout', 'besigue'])
     const choisis = new Set<string>()
     for (let i = 0; i < 50; i++) {
-      choisis.add(choisirAnnonceIA(combis, base, 'facile').nom)
+      choisis.add(choisirAnnonceIA(combis, base, 'facile')!.nom)
     }
     expect(choisis.size).toBeGreaterThan(1)
   })
@@ -290,7 +294,7 @@ describe('choisirAnnonceIA — stratégie par niveau', () => {
     const base = initialiserChampsIT4(state)
     const combis = makeCombis(['mariage_hors_atout', 'besigue', '4_roi'])  // 20, 100, 80
     const choix = choisirAnnonceIA(combis, base, 'intermediaire')
-    expect(choix.nom).toBe('besigue')  // 100 pts = max
+    expect(choix!.nom).toBe('besigue')  // 100 pts = max
   })
 
   it('difficile : priorise quinte avant bésigue même si bésigue vaut autant', () => {
@@ -298,7 +302,7 @@ describe('choisirAnnonceIA — stratégie par niveau', () => {
     const base = initialiserChampsIT4({ ...state, premierBesiguePose: false })
     const combis = makeCombis(['besigue', 'quinte'])  // 100 vs 250
     const choix = choisirAnnonceIA(combis, base, 'difficile')
-    expect(choix.nom).toBe('quinte')  // quinte prioritaire
+    expect(choix!.nom).toBe('quinte')  // quinte prioritaire
   })
 
   it('difficile : mariage_Atout prioritaire si disponible', () => {
@@ -306,7 +310,7 @@ describe('choisirAnnonceIA — stratégie par niveau', () => {
     const base = initialiserChampsIT4(state)
     const combis = makeCombis(['mariage_hors_atout', 'mariage_atout', '4_valet'])
     const choix = choisirAnnonceIA(combis, base, 'difficile')
-    expect(choix.nom).toBe('mariage_atout')
+    expect(choix!.nom).toBe('mariage_atout')
   })
 
   it('difficile : 4 As atout prioritaire sur 4 As normal', () => {
@@ -314,7 +318,7 @@ describe('choisirAnnonceIA — stratégie par niveau', () => {
     const base = initialiserChampsIT4(state)
     const combis = makeCombis(['4_as', '4_as_atout'])
     const choix = choisirAnnonceIA(combis, base, 'difficile')
-    expect(choix.nom).toBe('4_as_atout')  // 200 > 100
+    expect(choix!.nom).toBe('4_as_atout')  // 200 > 100
   })
 
   it('difficile : "4_as" prioritaire seul disponible → tout de même retourné', () => {
@@ -322,7 +326,7 @@ describe('choisirAnnonceIA — stratégie par niveau', () => {
     const base = initialiserChampsIT4(state)
     const combis = makeCombis(['4_as'])
     const choix = choisirAnnonceIA(combis, base, 'difficile')
-    expect(choix.nom).toBe('4_as')
+    expect(choix!.nom).toBe('4_as')
   })
 
   it('difficile : bésigue suivant (déjà annoncé) rétrogradé sous mariage_hors_atout', () => {
@@ -332,7 +336,7 @@ describe('choisirAnnonceIA — stratégie par niveau', () => {
     const base = initialiserChampsIT4({ ...state, premierBesiguePose: true })
     const combis = makeCombis(['besigue', 'mariage_hors_atout'])
     const choix = choisirAnnonceIA(combis, base, 'difficile')
-    expect(choix.nom).toBe('mariage_hors_atout')
+    expect(choix!.nom).toBe('mariage_hors_atout')
   })
 
   it('une seule combi → toujours retournée quel que soit le niveau', () => {
@@ -340,7 +344,7 @@ describe('choisirAnnonceIA — stratégie par niveau', () => {
     const base = initialiserChampsIT4(state)
     const combis = makeCombis(['besigue'])
     for (const niveau of ['facile','intermediaire','difficile'] as NiveauIA[]) {
-      expect(choisirAnnonceIA(combis, base, niveau).nom).toBe('besigue')
+      expect(choisirAnnonceIA(combis, base, niveau)!.nom).toBe('besigue')
     }
   })
 })

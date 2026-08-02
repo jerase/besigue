@@ -271,7 +271,7 @@ describe('Non-régression — quinte reproposition', () => {
     // Injecter mariagesAtoutActifs pour J0
     const stateAvecMariage = {
       ...state,
-      mariagesAtoutActifs: { 0: [[roi.id, dame.id]] as [string, string][], 1: [] as [string, string][] },
+      mariagesAtoutActifs: [[[roi.id, dame.id]] as [string, string][], [] as [string, string][]],
     }
 
     const combis = detecterCombinaisonsDisponibles(stateAvecMariage, 0)

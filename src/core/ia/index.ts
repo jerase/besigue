@@ -18,6 +18,7 @@ import { iaFacile }         from './niveau-facile'
 import { iaIntermediaire }  from './niveau-intermediaire'
 import { iaDifficile }      from './niveau-difficile'
 import { cartesUtilesAuxCombis } from './helpers'
+import { meilleureCombiMariageAtout } from './tableChoixAtout'
 
 // Réexports publics (utilisés par les tests et l'engine)
 export { DELAIS_IA } from '../ia.config'
@@ -34,11 +35,41 @@ export function delaiSimule(niveau: NiveauIA): number {
 
 // ── Choix de carte ────────────────────────────────────────────
 
+// ============================================================
+// Garde Phase 1 → Phase 3 (Étape 6)
+//
+// Les 10 fichiers du module core/ia/* (mémoire de cartes vues,
+// recherche minimax de phase finale, tables de décision, stratégies
+// heuristiques) supposent tous un adversaire UNIQUE et FIXE au siège
+// 0 — des dizaines d'occurrences de state.joueurs[0]/[1] et de
+// paramètres joueurId par défaut = 1, jusque dans le calcul des
+// cartes non vues et la déduction de la main adverse (memoire.ts,
+// minimaxFinale.ts). Ce n'est pas une simple question de signature :
+// généraliser correctement nécessiterait de repenser la déduction
+// probabiliste et les tables de décision pour plusieurs adversaires
+// inconnus simultanément — un chantier à part entière, différé à la
+// Phase 3, après validation des règles à N joueurs. Cette garde
+// empêche d'invoquer silencieusement une IA calibrée pour un duel
+// dans un contexte à N joueurs non pris en charge.
+// ============================================================
+
+function assertIACompatible(state: GameState, fonction: string): void {
+  if (state.joueurs.length !== 2) {
+    throw new Error(
+      `${fonction} : IA implémentée uniquement pour un duel à 2 joueurs ` +
+      `(reçu ${state.joueurs.length} joueurs). Les modules de mémoire, minimax ` +
+      `et tables de décision supposent un adversaire unique et fixe (siège 0) ; ` +
+      `généralisation à N adversaires différée à la Phase 3.`
+    )
+  }
+}
+
 /**
  * Point d'entrée principal : retourne la carte que l'IA joue.
  * Retourne null si aucun candidat n'est disponible.
  */
 export function choisirCarteIA(state: GameState, niveau: NiveauIA): Carte | null {
+  assertIACompatible(state, 'choisirCarteIA')
   const ia = state.joueurs[1]
   let candidats: Carte[] = [...ia.main, ...ia.cartesEtalees]
 
@@ -54,6 +85,18 @@ export function choisirCarteIA(state: GameState, niveau: NiveauIA): Carte | null
   if (candidats.length === 0) return null
 
   logger.debug('IA', `choisirCarteIA — niveau=${niveau}, candidats=${candidats.length}`)
+
+  // Priorité absolue (bugfix) : un Joker déjà étalé (utilisé dans une
+  // combinaison annoncée, donc présent dans cartesEtalees) ne rapporte
+  // plus rien à conserver — il doit être joué dès que possible pour
+  // s'en débarrasser. Cette règle prime sur toute stratégie des 3
+  // niveaux (facile, intermédiaire, difficile), y compris la recherche
+  // minimax de phase finale du niveau difficile.
+  const jokerEtaleAJouer = candidats.find(c => c.estJoker && ia.cartesEtalees.some(e => e.id === c.id))
+  if (jokerEtaleAJouer) {
+    logger.debug('IA', `Joker déjà étalé → défausse prioritaire (niveau=${niveau})`)
+    return jokerEtaleAJouer
+  }
 
   switch (niveau) {
     case 'facile':        return iaFacile(candidats, state)
@@ -73,14 +116,24 @@ export function choisirAnnonceIA(
   state: GameState,
   niveau: NiveauIA
 ): CombinaisonDisponible | null {
+  assertIACompatible(state, 'choisirAnnonceIA')
   if (combis.length === 0) return null
 
   switch (niveau) {
     case 'facile':
       return combis[Math.floor(Math.random() * combis.length)]
 
-    case 'intermediaire':
+    case 'intermediaire': {
+      // Plusieurs mariage_atout candidats (couleurs différentes, atout pas
+      // encore fixé) : la table de décision (tableChoixAtout.ts) départage
+      // sur un score motivé plutôt que sur le premier trouvé — sinon,
+      // à points égaux (40 chacun), .reduce garderait toujours le premier.
+      const meilleurMariageAtout = meilleureCombiMariageAtout(combis, state, 1)
+      if (meilleurMariageAtout && combis.filter(c => c.nom === 'mariage_atout').length > 1) {
+        return meilleurMariageAtout
+      }
       return combis.reduce((a, b) => b.points > a.points ? b : a)
+    }
 
     case 'difficile':
       return choisirAnnonceStrategique(combis, state)
@@ -109,6 +162,18 @@ function choisirAnnonceStrategique(
   combis: CombinaisonDisponible[],
   state: GameState
 ): CombinaisonDisponible {
+  // Plusieurs mariage_atout candidats (couleurs différentes, atout pas
+  // encore fixé) : tous à égalité de priorité (100), la table de décision
+  // (tableChoixAtout.ts) départage sur un score motivé plutôt que le
+  // premier trouvé par ordre de détection. Dans ce cas, `combis` ne
+  // contient de toute façon QUE des candidats mariage_atout (cf.
+  // detecterCombinaisonsDisponibles : avant le premier mariage_Atout,
+  // seuls ces candidats sont proposés).
+  const meilleurMariageAtout = meilleureCombiMariageAtout(combis, state, 1)
+  if (meilleurMariageAtout && combis.filter(c => c.nom === 'mariage_atout').length > 1) {
+    return meilleurMariageAtout
+  }
+
   let meilleureCombi = combis[0]
   let meilleurScore = -1
 

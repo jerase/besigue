@@ -456,7 +456,7 @@ function makeStateAvecPli(overrides?: Partial<GameState>): GameState {
 describe('appliquerPli — pli incomplet', () => {
   it('retourne le state inchangé si carteJoueur0 est absente', () => {
     const state = makeStateAvecPli({
-      pliEnCours: { carteJoueur0: null, carteJoueur1: AS_COEUR, joueurOuvreur: 1 },
+      pliEnCours: { carteJoueur0: null, carteJoueur1: AS_COEUR, joueurOuvreur: 1, cartes: [null, AS_COEUR] },
     })
     const apres = appliquerPli(state)
     expect(apres).toBe(state)
@@ -464,7 +464,7 @@ describe('appliquerPli — pli incomplet', () => {
 
   it('retourne le state inchangé si carteJoueur1 est absente', () => {
     const state = makeStateAvecPli({
-      pliEnCours: { carteJoueur0: AS_COEUR, carteJoueur1: null, joueurOuvreur: 0 },
+      pliEnCours: { carteJoueur0: AS_COEUR, carteJoueur1: null, joueurOuvreur: 0, cartes: [AS_COEUR, null] },
     })
     const apres = appliquerPli(state)
     expect(apres).toBe(state)
@@ -481,7 +481,7 @@ describe('jouerCarte — obligation de couleur en phase finale pour J1', () => {
       phase: 'finale',
       couleurAtout: 'diamonds',
       joueurActif: 1,
-      pliEnCours: { carteJoueur0: dixPiqueJ0, carteJoueur1: null, joueurOuvreur: 0 },
+      pliEnCours: { carteJoueur0: dixPiqueJ0, carteJoueur1: null, joueurOuvreur: 0, cartes: [dixPiqueJ0, null] },
     })
     const joueurs = [...state.joueurs] as typeof state.joueurs
     joueurs[1] = { ...joueurs[1], main: [piqueEnMain, coeurEnMain], cartesEtalees: [] }

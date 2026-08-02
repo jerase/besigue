@@ -40,7 +40,7 @@ function baseState(couleurAtout: Couleur | null = null): GameState {
     ...base,
     joueurs,
     pioche: [],
-    pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0 },
+    pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0, cartes: [null, null] },
   }
 }
 

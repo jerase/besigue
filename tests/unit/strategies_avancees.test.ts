@@ -32,7 +32,7 @@ function baseState(couleurAtout: Couleur | null = null): GameState {
     ...base,
     joueurs,
     pioche: Array.from({ length: 16 }, (_, i) => c('clubs', '7', 0)),
-    pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0 },
+    pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0, cartes: [null, null] },
   }
 }
 
@@ -49,7 +49,7 @@ describe('strategieBrisqueGagnante — a.1 (pas d\'atout)', () => {
     let state = baseState(null)
     state = {
       ...state,
-      pliEnCours: { carteJoueur0: roiCoeur, carteJoueur1: null, joueurOuvreur: 0 },
+      pliEnCours: { carteJoueur0: roiCoeur, carteJoueur1: null, joueurOuvreur: 0, cartes: [roiCoeur, null] },
     }
     state.joueurs[1].main = [dixCoeur, asCoeur, autre]
 
@@ -63,7 +63,7 @@ describe('strategieBrisqueGagnante — a.1 (pas d\'atout)', () => {
     // Ici l'IA n'a qu'un As de cœur (pas de 10) → il doit être joué.
     const roiCoeur = c('hearts', 'K')
     let state = baseState(null)
-    state = { ...state, pliEnCours: { carteJoueur0: roiCoeur, carteJoueur1: null, joueurOuvreur: 0 } }
+    state = { ...state, pliEnCours: { carteJoueur0: roiCoeur, carteJoueur1: null, joueurOuvreur: 0, cartes: [roiCoeur, null] } }
     const asCoeurIA = c('hearts', 'A', 1)
     const neufTrefle = c('clubs', '9')
     state.joueurs[1].main = [asCoeurIA, neufTrefle]
@@ -79,7 +79,7 @@ describe('strategieBrisqueGagnante — a.1 (pas d\'atout)', () => {
     const asPique = c('spades', 'A')
     const asCoeur = c('hearts', 'A')
     let state = baseState(null)
-    state = { ...state, pliEnCours: { carteJoueur0: roiTrefle, carteJoueur1: null, joueurOuvreur: 0 } }
+    state = { ...state, pliEnCours: { carteJoueur0: roiTrefle, carteJoueur1: null, joueurOuvreur: 0, cartes: [roiTrefle, null] } }
     state.joueurs[1].main = [asTrefle, asPique, asCoeur]
 
     const choix = strategieBrisqueGagnante([asTrefle, asPique, asCoeur], state)
@@ -100,7 +100,7 @@ describe('strategieBrisqueGagnante — b.1 (atout déclaré)', () => {
     const dixCoeur = c('hearts', '10')
     const asTrefleAtout = c('clubs', 'A') // atout, gagnerait aussi mais ne doit PAS être choisi ici
     let state = baseState('clubs')
-    state = { ...state, pliEnCours: { carteJoueur0: dameCoeur, carteJoueur1: null, joueurOuvreur: 0 } }
+    state = { ...state, pliEnCours: { carteJoueur0: dameCoeur, carteJoueur1: null, joueurOuvreur: 0, cartes: [dameCoeur, null] } }
     state.joueurs[1].main = [dixCoeur, asTrefleAtout]
 
     const choix = strategieBrisqueGagnante([dixCoeur, asTrefleAtout], state)
@@ -111,7 +111,7 @@ describe('strategieBrisqueGagnante — b.1 (atout déclaré)', () => {
     const dixTrefleAtout = c('clubs', '10') // ouverture à l'atout
     const asTrefleAtout = c('clubs', 'A')
     let state = baseState('clubs')
-    state = { ...state, pliEnCours: { carteJoueur0: dixTrefleAtout, carteJoueur1: null, joueurOuvreur: 0 } }
+    state = { ...state, pliEnCours: { carteJoueur0: dixTrefleAtout, carteJoueur1: null, joueurOuvreur: 0, cartes: [dixTrefleAtout, null] } }
     state.joueurs[1].main = [asTrefleAtout]
 
     expect(strategieBrisqueGagnante([asTrefleAtout], state)).toBeNull()
@@ -153,7 +153,7 @@ describe('strategieOuvrirAvecAs — a.2', () => {
     const asPique = c('spades', 'A')
     const roiTrefle = c('clubs', 'K')
     let state = baseState(null)
-    state = { ...state, pliEnCours: { carteJoueur0: roiTrefle, carteJoueur1: null, joueurOuvreur: 0 } }
+    state = { ...state, pliEnCours: { carteJoueur0: roiTrefle, carteJoueur1: null, joueurOuvreur: 0, cartes: [roiTrefle, null] } }
     state.joueurs[1].main = [asPique]
     expect(strategieOuvrirAvecAs([asPique], state)).toBeNull()
   })
@@ -197,7 +197,7 @@ describe('strategieGagnerPourMariage', () => {
     const dixCoeur = c('hearts', '10')     // gagne (rang > 9)
     const valetCoeur = c('hearts', 'J')    // gagne aussi (rang > 9), plus faible que le 10
     let state = baseState(null)
-    state = { ...state, pliEnCours: { carteJoueur0: neufCoeur, carteJoueur1: null, joueurOuvreur: 0 } }
+    state = { ...state, pliEnCours: { carteJoueur0: neufCoeur, carteJoueur1: null, joueurOuvreur: 0, cartes: [neufCoeur, null] } }
     state.joueurs[1].main = [roiPique, damePique, dixCoeur, valetCoeur]
 
     const candidats = [dixCoeur, valetCoeur]
@@ -212,7 +212,7 @@ describe('strategieGagnerPourMariage', () => {
     const neufCoeur = c('hearts', '9')
     const dixCoeur = c('hearts', '10')
     let state = baseState(null)
-    state = { ...state, pliEnCours: { carteJoueur0: neufCoeur, carteJoueur1: null, joueurOuvreur: 0 } }
+    state = { ...state, pliEnCours: { carteJoueur0: neufCoeur, carteJoueur1: null, joueurOuvreur: 0, cartes: [neufCoeur, null] } }
     state.joueurs[1].main = [roiPique, damePique, asCoeur, dixCoeur]
 
     const choix = strategieGagnerPourMariage([asCoeur, dixCoeur], state)
@@ -223,7 +223,7 @@ describe('strategieGagnerPourMariage', () => {
     const neufCoeur = c('hearts', '9')
     const dixCoeur = c('hearts', '10')
     let state = baseState(null)
-    state = { ...state, pliEnCours: { carteJoueur0: neufCoeur, carteJoueur1: null, joueurOuvreur: 0 } }
+    state = { ...state, pliEnCours: { carteJoueur0: neufCoeur, carteJoueur1: null, joueurOuvreur: 0, cartes: [neufCoeur, null] } }
     state.joueurs[1].main = [dixCoeur]
 
     expect(strategieGagnerPourMariage([dixCoeur], state)).toBeNull()
@@ -244,7 +244,7 @@ describe('strategieGagnerPourMariage', () => {
       const dameCoeurOuverte = c('hearts', 'Q') // carte ouverte par l'humain
 
       let state = baseState(null)
-      state = { ...state, pliEnCours: { carteJoueur0: dameCoeurOuverte, carteJoueur1: null, joueurOuvreur: 0 } }
+      state = { ...state, pliEnCours: { carteJoueur0: dameCoeurOuverte, carteJoueur1: null, joueurOuvreur: 0, cartes: [dameCoeurOuverte, null] } }
       state.joueurs[1].main = [roiDiamant, dameDiamant, roiPique, roiCoeur, roiTrefle]
 
       // Vérifie la prémisse du test : mariage potentiel = diamonds, et les 4 Rois sont protégés (4_rois, seuil ≥3)
@@ -314,7 +314,7 @@ describe('strategieOuvrirJokerSansMariage — a.4', () => {
     const jokerPique = creerJoker('spades', 0, _pos++)
     const roiTrefle = c('clubs', 'K')
     let state = baseState(null)
-    state = { ...state, pliEnCours: { carteJoueur0: roiTrefle, carteJoueur1: null, joueurOuvreur: 0 } }
+    state = { ...state, pliEnCours: { carteJoueur0: roiTrefle, carteJoueur1: null, joueurOuvreur: 0, cartes: [roiTrefle, null] } }
     state.joueurs[1].main = [jokerPique]
     expect(strategieOuvrirJokerSansMariage([jokerPique], state)).toBeNull()
   })
@@ -325,12 +325,23 @@ describe('strategieOuvrirJokerSansMariage — a.4', () => {
 // ============================================================
 
 describe('strategieOuvrirCouleurEpuisee', () => {
-  it('choisit la couleur non-atout où le plus de brisques ont déjà été vues', () => {
-    // Atout = clubs. Brisques déjà jouées : 2 en hearts (humain), 0 en diamonds.
+  it('choisit la couleur non-atout la plus sûre à ouvrir (moins de brisques adverses probables restantes)', () => {
+    // Atout = clubs. hearts : As+10 déjà vus (partis, remportés par J0)
+    //   → il ne reste que 3+3=6 brisques hearts non vues dans le reliquat.
+    // diamonds : rien vu → 4+4=8 brisques diamonds non vues dans le reliquat.
+    // hearts a donc une valeur espérée de brisques adverses plus faible
+    // (moins de reliquat au total) → hearts est la couleur la plus sûre.
     const asCoeurJoue = c('hearts', 'A')
     const dixCoeurJoue = c('hearts', '10')
     const state0 = baseState('clubs')
-    const j0 = { ...state0.joueurs[0], pileRemportee: [asCoeurJoue, dixCoeurJoue] }
+    const j0 = {
+      ...state0.joueurs[0],
+      pileRemportee: [asCoeurJoue, dixCoeurJoue],
+      // Main adverse réaliste et non vide (baseState la met à [] par
+      // défaut) : indispensable pour que la pondération probabiliste de
+      // tableBrisques.ts soit représentative (sinon proba = 0 partout).
+      main: Array.from({ length: 5 }, (_, i) => c('clubs', '9', i % 4)),
+    }
     const state = { ...state0, joueurs: [j0, state0.joueurs[1]] as typeof state0.joueurs }
 
     const neufCoeur = c('hearts', '9')
@@ -352,8 +363,27 @@ describe('strategieOuvrirCouleurEpuisee', () => {
     const roiTrefle = c('clubs', 'K')
     const neufCoeur = c('hearts', '9')
     let state = baseState('clubs')
-    state = { ...state, pliEnCours: { carteJoueur0: roiTrefle, carteJoueur1: null, joueurOuvreur: 0 } }
+    state = { ...state, pliEnCours: { carteJoueur0: roiTrefle, carteJoueur1: null, joueurOuvreur: 0, cartes: [roiTrefle, null] } }
     state.joueurs[1].main = [neufCoeur]
     expect(strategieOuvrirCouleurEpuisee([neufCoeur], state)).toBeNull()
+  })
+
+  it('ne sacrifie jamais une brisque détenue quand une carte faible non-brisque existe dans une autre couleur — même si sa couleur est jugée "plus sûre" (régression découverte via ia_intermediaire_v2.test.ts)', () => {
+    // Piège : l'IA détient un As de hearts (sa seule carte hearts) et un 8
+    // de diamonds. Le fait que l'IA possède déjà cet As réduit le reliquat
+    // "non vu" côté hearts (memoire.ts l'exclut de son propre calcul), ce
+    // qui peut faire ressortir hearts comme couleur "la plus sûre" au sens
+    // strict de tableBrisques — mais la SEULE carte hearts disponible est
+    // justement cette brisque. Il ne faut jamais la sacrifier tant qu'une
+    // carte faible sans valeur (le 8 de diamonds) reste disponible ailleurs.
+    const asHearts = c('hearts', 'A')
+    const huitDiamond = c('diamonds', '8')
+    const state = baseState('clubs')
+    state.joueurs[0].main = Array.from({ length: 9 }, (_, i) => c('clubs', '9', i % 4))
+    state.pioche = Array.from({ length: 6 }, (_, i) => c('clubs', '7', i % 4))
+    state.joueurs[1].main = [asHearts, huitDiamond]
+
+    const choix = strategieOuvrirCouleurEpuisee([asHearts, huitDiamond], state)
+    expect(choix?.id).toBe(huitDiamond.id)
   })
 })

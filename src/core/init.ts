@@ -4,7 +4,7 @@
 // ============================================================
 
 import type {
- Carte, GameConfig, GameState, Joueur, PliEnCours, ResultatTirage,
+ Carte, GameConfig, GameState, Joueur, PliEnCours, ResultatTirage, SiegeId,
 } from '../types'
 import { ORDRE_RANGS } from '../types'
 import { creerDeckMelange, melangerFisherYates } from './deck'
@@ -71,7 +71,7 @@ export function tirerPremierJoueur(cartes: Carte[]): ResultatTirage {
 // CRÉER UN JOUEUR VIDE
 // ============================================================
 
-export function creerJoueur(id: 0 | 1, config: GameConfig): Joueur {
+export function creerJoueur(id: SiegeId, config: GameConfig): Joueur {
  return {
  id,
  nom: id === 0 ? config.nomJoueur1 : config.nomJoueur2,
@@ -134,6 +134,7 @@ export function initialiserPartie(config: GameConfig): {
  carteJoueur0: null,
  carteJoueur1: null,
  joueurOuvreur: tirage.premierJoueur,
+ cartes: [null, null],
  }
 
  const state: GameState = {
@@ -151,8 +152,8 @@ export function initialiserPartie(config: GameConfig): {
  compteurManches: [0, 0],
  annonces: [],
  usagesCartes: [],
- mariagesAtoutActifs: { 0: [], 1: [] },
- combisEnAttente: { 0: [], 1: [] },
+ mariagesAtoutActifs: [[], []],
+ combisEnAttente: [[], []],
  }
 
  return { state, history: [] }
@@ -180,7 +181,7 @@ export function piocher(
  }
 
  const nouvelleMain = [...state.joueurs[joueurId].main, carteVisible]
- const joueursMaj = [...state.joueurs] as [Joueur, Joueur]
+ const joueursMaj = [...state.joueurs] as Joueur[]
  joueursMaj[joueurId] = { ...joueursMaj[joueurId], main: nouvelleMain }
 
  logger.debug('PIOCHE', `J${joueurId} pioche`, { carteId: cartePiochee.id })
@@ -204,7 +205,7 @@ export function ajouterPoints(
  joueurId: 0 | 1,
  points: number
 ): GameState {
- const joueursMaj = [...state.joueurs] as [Joueur, Joueur]
+ const joueursMaj = [...state.joueurs] as Joueur[]
  const nouveauScore = Math.max(0, joueursMaj[joueurId].marquePoints + points)
  joueursMaj[joueurId] = { ...joueursMaj[joueurId], marquePoints: nouveauScore }
  logger.info('SCORE', `J${joueurId} : ${state.joueurs[joueurId].marquePoints} → ${nouveauScore} (+${points})`)

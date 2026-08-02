@@ -39,13 +39,13 @@ function makeStateApresVictoirePli(
     ...state,
     joueurActif: 0,
     dernierVainqueurPli: 0,
-    pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0 },
+    pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0, cartes: [null, null] },
     pioche: piocheCartes,
     annonces: [
       { nom: 'mariage_atout' as const, points: 40, cartesIds: [`${couleurAtout}-K-9-900`, `${couleurAtout}-Q-9-901`], joueurId: 1 as const, mancheNumero: 1 },
       ...annoncesSupp,
     ],
-    combisEnAttente: { 0: [], 1: [] },
+    combisEnAttente: [[], []],
   }
   // 3. Injecter les cartes du joueur
   const joueurs = [...state.joueurs] as typeof state.joueurs
@@ -157,7 +157,7 @@ describe('combisEnAttente — persistance entre tours', () => {
     // Simuler "passer" : sauvegarder en attente sans annoncer
     state = {
       ...state,
-      combisEnAttente: { 0: combis, 1: [] },
+      combisEnAttente: [combis, []],
     }
 
     // Au tour suivant, les combis sont encore en attente
@@ -177,7 +177,7 @@ describe('combisEnAttente — persistance entre tours', () => {
     const combis = detecterCombinaisonsDisponibles(state, 0)
 
     // Mettre en attente
-    state = { ...state, combisEnAttente: { 0: combis, 1: [] } }
+    state = { ...state, combisEnAttente: [combis, []] }
 
     // Annoncer le bésigue
     const besigue = combis.find(c => c.nom === 'besigue')!
@@ -185,7 +185,7 @@ describe('combisEnAttente — persistance entre tours', () => {
 
     // Retirer le bésigue des en-attente
     const enAttenteRestantes = state.combisEnAttente[0].filter(ea => ea.nom !== besigue.nom)
-    state = { ...state, combisEnAttente: { 0: enAttenteRestantes, 1: [] } }
+    state = { ...state, combisEnAttente: [enAttenteRestantes, []] }
 
     expect(state.combisEnAttente[0].some(c => c.nom === 'besigue')).toBe(false)
   })
@@ -206,14 +206,14 @@ describe('combisEnAttente — persistance entre tours', () => {
     let state = makeStateApresVictoirePli([roiS, dameS, valetD], [], [], atout)
     const combis = detecterCombinaisonsDisponibles(state, 0)
 
-    state = { ...state, combisEnAttente: { 0: combis, 1: [] } }
+    state = { ...state, combisEnAttente: [combis, []] }
 
     // Poser mariage en premier
     const mariage = combis.find(c => c.nom === 'mariage_hors_atout')
     if (mariage) {
       state = appliquerAnnonce(state, 0, mariage)
       const enAttenteApres = state.combisEnAttente[0].filter(ea => ea.nom !== 'mariage_hors_atout')
-      state = { ...state, combisEnAttente: { 0: enAttenteApres, 1: [] } }
+      state = { ...state, combisEnAttente: [enAttenteApres, []] }
       // Les autres combis (bésigue etc.) sont encore en attente
       expect(state.joueurs[0].cartesEtalees.some(c => c.id === roiS.id)).toBe(true)
     }
@@ -288,7 +288,7 @@ describe('Séquence complète — ordre des étapes', () => {
     expect(combis.length).toBeGreaterThan(0)
 
     // Simuler passage : sauvegarder en attente
-    state = { ...state, combisEnAttente: { 0: combis, 1: [] } }
+    state = { ...state, combisEnAttente: [combis, []] }
 
     // Piocher immédiatement (sans annonce)
     const { state: apres } = piocher(state, 0)
@@ -376,7 +376,7 @@ describe('Non-régression — une seule combinaison par pli', () => {
     state = appliquerAnnonce(state, 0, besigue)
 
     // Simuler ce que fait le hook après annonce : vider combisEnAttente
-    state = { ...state, combisEnAttente: { 0: [], 1: [] } }
+    state = { ...state, combisEnAttente: [[], []] }
 
     // Aucune combi en attente → pas de reproposition automatique
     expect(state.combisEnAttente[0]).toHaveLength(0)
@@ -395,7 +395,7 @@ describe('Non-régression — une seule combinaison par pli', () => {
     expect(combis.some(c => c.nom === 'besigue')).toBe(true)
 
     // Simuler "passer" : combisEnAttente vidées
-    state = { ...state, combisEnAttente: { 0: [], 1: [] } }
+    state = { ...state, combisEnAttente: [[], []] }
     expect(state.combisEnAttente[0]).toHaveLength(0)
 
     // Au tour suivant : bésigue toujours disponible (cartes non jouées)
@@ -421,7 +421,7 @@ describe('Non-régression — une seule combinaison par pli', () => {
     const besigue = combis.find(c => c.nom === 'besigue')!
     state = appliquerAnnonce(state, 0, besigue)
     // Règle : vider combisEnAttente → le carré valets n'est PAS reproposé ce tour
-    state = { ...state, combisEnAttente: { 0: [], 1: [] } }
+    state = { ...state, combisEnAttente: [[], []] }
 
     // Ce tour : pas de combi en attente (correct)
     expect(state.combisEnAttente[0]).toHaveLength(0)

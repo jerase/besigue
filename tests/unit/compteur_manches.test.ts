@@ -55,7 +55,7 @@ function makeEtatFinManche(
   const joueurs = [...base.joueurs] as typeof base.joueurs
   joueurs[0] = { ...joueurs[0], main: [], cartesEtalees: [], marquePoints: scoreJ0, pileRemportee: pileJ0 }
   joueurs[1] = { ...joueurs[1], main: [], cartesEtalees: [], marquePoints: scoreJ1, pileRemportee: pileJ1 }
-  return { ...base, joueurs, combisEnAttente: { 0: [], 1: [] } }
+  return { ...base, joueurs, combisEnAttente: [[], []] }
 }
 
 // ============================================================

@@ -35,10 +35,14 @@ export function resoudrePli(
  // - Si la réponse est une carte NON-ATOUT → le Joker gagne (l'ouvreur gagne)
  // - Si la réponse est aussi un Joker → l'ouvreur gagne (Joker vs Joker)
 
- const ouvreurEstJ0 = joueurOuvreur === 0
- const carteOuverte = ouvreurEstJ0 ? carteJ0 : carteJ1
- const carteReponse = ouvreurEstJ0 ? carteJ1 : carteJ0
- const joueurReponse: 0 | 1 = ouvreurEstJ0 ? 1 : 0
+ // Étape 3c (Phase 1) : indexation générique par siège plutôt que ternaires
+ // nommés J0/J1. Comportement strictement identique pour 2 joueurs ; la
+ // formule (joueurOuvreur + 1) % 2 se généralisera à (joueurOuvreur + 1) % N
+ // le jour où la Phase 3 définira l'ordre de jeu à N sièges.
+ const cartes: [Carte, Carte] = [carteJ0, carteJ1]
+ const joueurReponse: 0 | 1 = ((joueurOuvreur + 1) % 2) as 0 | 1
+ const carteOuverte = cartes[joueurOuvreur]
+ const carteReponse = cartes[joueurReponse]
 
  // Cas Joker vs Joker (les deux jouent Joker) → ouvreur gagne
  if (carteOuverte.estJoker && carteReponse.estJoker) {
@@ -172,32 +176,51 @@ export function cartesJouablesPhaseFinale(
 }
 
 // ============================================================
+// Accesseurs génériques par siège (Phase 1 — Étape 3d)
+//
+// `cartes[]` étant désormais la source de vérité (voir types/index.ts),
+// ces accesseurs offrent une lecture par siège qui se généralisera
+// naturellement à N sièges en Phase 3, sans que les consommateurs
+// aient à connaître la représentation interne exacte.
+// ============================================================
+
+export function carteDuSiege(pli: { cartes: (Carte | null)[] }, siege: 0 | 1): Carte | null {
+ return pli.cartes[siege] ?? null
+}
+
+/** Vrai lorsque tous les sièges ont joué leur carte pour le pli en cours (2 sièges aujourd'hui). */
+export function pliEstComplet(pli: { cartes: (Carte | null)[] }): boolean {
+ return pli.cartes.every(c => c !== null)
+}
+
+// ============================================================
 // Appliquer un pli complet sur le GameState
 // ============================================================
 
 export function appliquerPli(state: GameState): GameState {
  const { pliEnCours, couleurAtout } = state
- const { carteJoueur0, carteJoueur1, joueurOuvreur } = pliEnCours
+ const { joueurOuvreur } = pliEnCours
+ const [carteSiege0, carteSiege1] = pliEnCours.cartes
 
- if (!carteJoueur0 || !carteJoueur1) {
+ if (!carteSiege0 || !carteSiege1) {
  logger.warn('PLI', 'Tentative de résoudre un pli incomplet')
  return state
  }
 
  const { vainqueur, raison } = resoudrePli(
- carteJoueur0, carteJoueur1, joueurOuvreur, couleurAtout
-)
+ carteSiege0, carteSiege1, joueurOuvreur, couleurAtout
+ )
 
- logger.info('PLI', `Pli résolu → J${vainqueur} gagne`, { raison, c0: carteJoueur0.id, c1: carteJoueur1.id })
+ logger.info('PLI', `Pli résolu → J${vainqueur} gagne`, { raison, c0: carteSiege0.id, c1: carteSiege1.id })
 
  // Bonus 7 d'atout
  let newState = { ...state }
  if (couleurAtout) {
- if (!carteJoueur0.estJoker && carteJoueur0.rang === '7' && carteJoueur0.couleur === couleurAtout) {
+ if (!carteSiege0.estJoker && carteSiege0.rang === '7' && carteSiege0.couleur === couleurAtout) {
  logger.info('PLI', 'J0 joue le 7 d\'atout → +10 pts')
  newState = ajouterPointsState(newState, 0, 10)
  }
- if (!carteJoueur1.estJoker && carteJoueur1.rang === '7' && carteJoueur1.couleur === couleurAtout) {
+ if (!carteSiege1.estJoker && carteSiege1.rang === '7' && carteSiege1.couleur === couleurAtout) {
  logger.info('PLI', 'J1 joue le 7 d\'atout → +10 pts')
  newState = ajouterPointsState(newState, 1, 10)
  }
@@ -209,8 +232,8 @@ export function appliquerPli(state: GameState): GameState {
  ...joueursMaj[vainqueur],
  pileRemportee: [
  ...joueursMaj[vainqueur].pileRemportee,
- { ...carteJoueur0, faceUp: true },
- { ...carteJoueur1, faceUp: true },
+ { ...carteSiege0, faceUp: true },
+ { ...carteSiege1, faceUp: true },
  ],
  }
 
@@ -219,6 +242,7 @@ export function appliquerPli(state: GameState): GameState {
  carteJoueur0: null,
  carteJoueur1: null,
  joueurOuvreur: vainqueur,
+ cartes: [null, null],
  }
 
  return {
@@ -275,10 +299,16 @@ export function jouerCarte(
  const joueursMaj = [...state.joueurs] as typeof state.joueurs
  joueursMaj[joueurId] = { ...joueursMaj[joueurId], main: nouvelleMain, cartesEtalees: nouvellesEtalees }
 
- // Placer dans le pli
- const nouveauPli = { ...state.pliEnCours }
- if (joueurId === 0) nouveauPli.carteJoueur0 = carteJouee
- else nouveauPli.carteJoueur1 = carteJouee
+ // Placer dans le pli — cartes[] est désormais l'écriture primaire ;
+ // carteJoueur0/1 sont dérivés pour compatibilité avec les consommateurs existants
+ const nouvellesCartes = [...state.pliEnCours.cartes]
+ nouvellesCartes[joueurId] = carteJouee
+ const nouveauPli = {
+ ...state.pliEnCours,
+ cartes: nouvellesCartes,
+ carteJoueur0: nouvellesCartes[0],
+ carteJoueur1: nouvellesCartes[1],
+ }
 
  // Prochain joueur actif = l'autre (en attendant la résolution)
  const adversaire: 0 | 1 = joueurId === 0 ? 1 : 0

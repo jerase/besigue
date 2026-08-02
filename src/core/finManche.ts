@@ -29,7 +29,34 @@ export interface ResultatBrisques {
  deltaJ1: number // points ajoutés/retirés à J1
 }
 
+// ============================================================
+// Garde Phase 1 → Phase 3 (Étape 5)
+//
+// L'algorithme de brisques (majorité entre deux mains, barème
+// ±160/±200) et la règle de victoire de partie (adversaire à 0 sur
+// 4 manches) sont des règles de DUEL : elles n'ont de sens que pour
+// exactement 2 joueurs. Les généraliser à 3-4 joueurs nécessite de
+// définir de nouvelles règles (majorité relative ? seuil différent ?
+// notion d'« adversaire » à redéfinir pour un jeu à N joueurs), ce
+// qui n'est pas encore validé avec le concepteur du jeu (voir étude
+// de faisabilité). Cette garde explicite empêche d'appliquer
+// silencieusement les règles à 2 joueurs dans un contexte à N
+// joueurs non pris en charge, plutôt que de produire un résultat
+// incorrect sans avertissement.
+// ============================================================
+
+function assertDeuxJoueurs(state: GameState, fonction: string): void {
+ if (state.joueurs.length !== 2) {
+ throw new Error(
+ `${fonction} : règles de fin de manche implémentées uniquement pour 2 joueurs ` +
+ `(reçu ${state.joueurs.length}). Généralisation à 3-4 joueurs différée à la Phase 3 ` +
+ `(règles de brisques et de victoire de partie à définir).`
+ )
+ }
+}
+
 export function calculerBrisques(state: GameState): ResultatBrisques {
+ assertDeuxJoueurs(state, 'calculerBrisques')
  const brisquesJ0 = compterBrisquesJoueur(state, 0)
  const brisquesJ1 = compterBrisquesJoueur(state, 1)
  const scoreJ0 = state.joueurs[0].marquePoints
@@ -86,6 +113,7 @@ export function appliquerFinManche(
  state: GameState,
  finAnticipee = false // true = seuil atteint via annonces, cartes encore en main
 ): ResultatManche {
+ assertDeuxJoueurs(state, 'appliquerFinManche')
  let newState = { ...state }
 
  // 1. Bonus dernier pli (+10 pts)
@@ -220,10 +248,12 @@ export function doitDeclenchemtPhaseFinale(state: GameState): boolean {
 // ============================================================
 
 export function mancheTerminee(state: GameState): boolean {
- const j0 = state.joueurs[0]
- const j1 = state.joueurs[1]
- return j0.main.length === 0 && j0.cartesEtalees.length === 0
- && j1.main.length === 0 && j1.cartesEtalees.length === 0
+ // Étape 5 (Phase 1) : parcours dynamique de state.joueurs plutôt que
+ // référence figée à j0/j1. Contrairement aux brisques ou à la victoire
+ // de partie, « toutes les mains sont vides » est un concept universel
+ // qui ne dépend d'aucune règle propre au duel — généralisation sûre à
+ // N joueurs, sans attendre la Phase 3.
+ return state.joueurs.every(j => j.main.length === 0 && j.cartesEtalees.length === 0)
  && state.phase === 'finale'
 }
 

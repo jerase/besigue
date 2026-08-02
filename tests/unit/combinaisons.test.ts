@@ -501,7 +501,7 @@ describe('Mariage_Atout dynamique', () => {
     let state = stateAvecMain([roi, dame], 0, { couleurAtout: 'hearts' })
     state = {
       ...state,
-      mariagesAtoutActifs: { 0: [[roi.id, dame.id]], 1: [] },
+      mariagesAtoutActifs: [[[roi.id, dame.id]], []],
     }
 
     const stateApres = gererCassureMariageAtout(state, 0, roi.id)
@@ -515,7 +515,7 @@ describe('Mariage_Atout dynamique', () => {
     let state = stateAvecMain([roi, dame, as], 0, { couleurAtout: 'hearts' })
     state = {
       ...state,
-      mariagesAtoutActifs: { 0: [[roi.id, dame.id]], 1: [] },
+      mariagesAtoutActifs: [[[roi.id, dame.id]], []],
     }
     const stateApres = gererCassureMariageAtout(state, 0, as.id)
     expect(stateApres.mariagesAtoutActifs?.[0]).toHaveLength(1)

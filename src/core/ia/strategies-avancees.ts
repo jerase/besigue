@@ -10,10 +10,12 @@
 // ============================================================
 
 import type { Carte, Couleur, GameState } from '../../types'
+import { VALEURS_BRISQUES } from '../../types'
 import { logger } from '../../utils/logger'
 import { detecterCombinaisonsDisponibles } from '../combinaisons'
 import { carteAvecRangMinimal, candidatsGagnants, cartesUtilesAuxCombis } from './helpers'
-import { brisquesJoueesParCouleur } from './memoire'
+import { meilleureCombiMariageAtout } from './tableChoixAtout'
+import { couleursLesPlusSuresAOuvrir } from './tableBrisques'
 import { PROBA_SACRIFIER_CARTE_PROTEGEE_POUR_MARIAGE } from '../ia.config'
 
 // ── Utilitaire partagé : couleur d'un mariage potentiel non annoncé ──
@@ -26,11 +28,16 @@ import { PROBA_SACRIFIER_CARTE_PROTEGEE_POUR_MARIAGE } from '../ia.config'
  * Réutilise directement `detecterCombinaisonsDisponibles` (source
  * unique de vérité pour la détection des mariages) plutôt que de
  * dupliquer la logique d'appariement Roi/Dame.
+ *
+ * Quand PLUSIEURS couleurs sont candidates (Roi+Dame dans plusieurs
+ * couleurs différentes), `meilleureCombiMariageAtout` (tableChoixAtout.ts)
+ * départage sur un score motivé plutôt que le premier trouvé par ordre
+ * de détection — voir tableChoixAtout.ts.
  */
 export function couleurMariagePotentielNonAnnonce(state: GameState): Couleur | null {
   if (state.couleurAtout !== null) return null
   const combis = detecterCombinaisonsDisponibles(state, 1)
-  const mariage = combis.find(c => c.nom === 'mariage_atout')
+  const mariage = meilleureCombiMariageAtout(combis, state, 1)
   if (!mariage) return null
 
   const ia = state.joueurs[1]
@@ -225,11 +232,15 @@ export function strategieOuvrirJokerSansMariage(candidats: Carte[], state: GameS
 
 /**
  * En ouverture, une fois l'atout déclaré : choisir la couleur
- * non-atout où le plus de brisques ont déjà été vues/jouées
- * (couleur la plus "épuisée"), et y jouer la carte la plus faible
- * disponible. Maximise la probabilité de gagner par la règle
- * "couleurs différentes → ouvreur gagne" ou de ne pas se faire
- * couper facilement par une brisque adverse restante.
+ * non-atout la plus SÛRE à ouvrir — celle où la valeur espérée de
+ * brisques adverses restantes est minimale (tableBrisques.ts) — et
+ * y jouer la carte la plus faible disponible. Maximise la probabilité
+ * de gagner par la règle "couleurs différentes → ouvreur gagne" ou de
+ * ne pas se faire couper facilement par une brisque adverse restante.
+ *
+ * Remplace l'ancien proxy "couleur la plus épuisée" (max brisques déjà
+ * vues) par le reliquat non vu réel, pondéré par la probabilité qu'il
+ * soit en main adverse plutôt qu'en pioche (cf. tableBrisques.ts).
  */
 export function strategieOuvrirCouleurEpuisee(candidats: Carte[], state: GameState): Carte | null {
   const carteOuverte = state.pliEnCours.carteJoueur0
@@ -238,25 +249,110 @@ export function strategieOuvrirCouleurEpuisee(candidats: Carte[], state: GameSta
   if (couleurAtout === null) return null
 
   const protegees = cartesUtilesAuxCombis(state, 1)
-  const brisquesJouees = brisquesJoueesParCouleur(state)
 
   const candidatsNonAtout = candidats.filter(c =>
     !c.estJoker && c.couleur !== couleurAtout && !protegees.has(c.id)
   )
   if (candidatsNonAtout.length === 0) return null
 
-  const couleursDisponibles = Array.from(new Set(candidatsNonAtout.map(c => c.couleur)))
-  const maxBrisquesVues = Math.max(...couleursDisponibles.map(cl => brisquesJouees[cl]))
-  const couleursMax = couleursDisponibles.filter(cl => brisquesJouees[cl] === maxBrisquesVues)
+  // Préférer une carte de "remplissage" NON-brisque : la sûreté de la
+  // couleur (ci-dessous) n'a de sens que pour départager entre cartes
+  // faibles équivalentes — elle ne doit jamais, à elle seule, pousser à
+  // sacrifier une brisque que l'IA détient déjà quand une autre couleur
+  // offre une carte faible sans valeur. Repli sur les brisques seulement
+  // si aucune carte non-brisque non-atout n'est disponible.
+  const nonBrisques = candidatsNonAtout.filter(c => c.rang !== 'A' && c.rang !== '10')
+  const pool = nonBrisques.length > 0 ? nonBrisques : candidatsNonAtout
+
+  const couleursDisponibles = Array.from(new Set(pool.map(c => c.couleur)))
+  const couleursSures = couleursLesPlusSuresAOuvrir(state, couleursDisponibles, 1)
 
   // En cas d'égalité entre plusieurs couleurs (ex. aucune brisque vue nulle
   // part encore), on ne fixe pas arbitrairement une couleur : on prend la
   // carte globalement la plus faible parmi toutes les couleurs à égalité.
-  const candidatsRetenus = candidatsNonAtout.filter(c => couleursMax.includes(c.couleur))
+  const candidatsRetenus = pool.filter(c => couleursSures.includes(c.couleur))
   const choix = carteAvecRangMinimal(candidatsRetenus)
   logger.debug(
     'IA',
-    `OuvrirCouleurÉpuisée (b.2) — ${choix.couleur} (${maxBrisquesVues} brisques vues) → ${choix.rang}${choix.couleur}`
+    `OuvrirCouleurÉpuisée (b.2) — ${choix.couleur} (couleur la plus sûre à ouvrir) → ${choix.rang}${choix.couleur}`
   )
   return choix
+}
+
+// ── Éviter les As étalés non-atout de l'adversaire (ouverture) ─────
+
+/**
+ * En ouverture, évite d'ouvrir un pli avec une carte qu'un As étalé
+ * non-atout de l'adversaire (humain, siège 0) peut remporter — cela lui
+ * offrirait cet As en brisque bonus (les As étalés sont visibles, donc
+ * ce risque est CERTAIN, pas probabiliste — à distinguer de la table de
+ * risque de tableBrisques.ts, qui porte sur les cartes non vues).
+ *
+ * Deux niveaux de sévérité, conformes à la demande :
+ *   - Un 10 de la même couleur qu'un As étalé est LUI-MÊME une brisque :
+ *     s'il est capturé par cet As, l'adversaire empoche DEUX brisques
+ *     bonus (le 10 + l'As). À éviter en priorité absolue si une carte
+ *     plus sûre existe.
+ *   - Toute autre carte de cette couleur n'offre qu'UNE brisque bonus
+ *     (l'As lui-même) : évitement plus souple ("limiter"), qui cède le
+ *     pas dès qu'aucune carte totalement sûre n'est disponible.
+ *
+ * Un Joker en ouverture est toujours sûr vis-à-vis de cette menace : par
+ * les règles du Joker (pli.ts), un Joker joué en premier bat toute carte
+ * non-atout jouée en réponse, y compris un As non-atout.
+ *
+ * Ne s'applique qu'en ouverture (carteOuverte === null). Retourne null si
+ * l'humain n'a aucun As étalé non-atout visible, ou si aucune carte plus
+ * sûre que le pire cas n'est disponible (rien à améliorer).
+ */
+export function strategieEviterAsEtalesAdverse(
+  candidats: Carte[],
+  state: GameState,
+  cartesUtiles: Set<string>
+): Carte | null {
+  const carteOuverte = state.pliEnCours.carteJoueur0
+  if (carteOuverte !== null) return null
+
+  const couleurAtout = state.couleurAtout
+  const humain = state.joueurs[0]
+
+  const couleursDangereuses = new Set<Couleur>(
+    humain.cartesEtalees
+      .filter(c => !c.estJoker && c.rang === 'A' && (!couleurAtout || c.couleur !== couleurAtout))
+      .map(c => c.couleur)
+  )
+  if (couleursDangereuses.size === 0) return null
+
+  const choisirParmi = (pool: Carte[]): Carte | null => {
+    if (pool.length === 0) return null
+    const sansValeurNiUtile = pool.filter(c => VALEURS_BRISQUES[c.rang] === 0 && !cartesUtiles.has(c.id))
+    if (sansValeurNiUtile.length > 0) return carteAvecRangMinimal(sansValeurNiUtile)
+    const sansValeur = pool.filter(c => VALEURS_BRISQUES[c.rang] === 0)
+    if (sansValeur.length > 0) return carteAvecRangMinimal(sansValeur)
+    return carteAvecRangMinimal(pool)
+  }
+
+  // Priorité 1 (sévérité forte + souple confondues) : une carte totalement
+  // hors couleur dangereuse existe → toujours la préférer.
+  const candidatsSurs = candidats.filter(c => c.estJoker || !couleursDangereuses.has(c.couleur))
+  const choixSur = choisirParmi(candidatsSurs)
+  if (choixSur) {
+    logger.debug('IA', `ÉviterAsÉtalésAdverse — carte hors couleur dangereuse → ${choixSur.rang}${choixSur.couleur}`)
+    return choixSur
+  }
+
+  // Priorité 2 : aucune carte totalement sûre — au moins éviter le 10 de
+  // couleur dangereuse (le pire cas, deux brisques de bonus pour l'adversaire).
+  const sans10Risque = candidats.filter(
+    c => !(!c.estJoker && c.rang === '10' && couleursDangereuses.has(c.couleur))
+  )
+  const choixLimite = choisirParmi(sans10Risque)
+  if (choixLimite) {
+    logger.debug('IA', `ÉviterAsÉtalésAdverse — 10 à risque évité (couleur dangereuse limitée) → ${choixLimite.rang}${choixLimite.couleur}`)
+    return choixLimite
+  }
+
+  // Priorité 3 : aucune amélioration possible (uniquement des 10 à risque
+  // disponibles) — on laisse la cascade existante décider.
+  return null
 }

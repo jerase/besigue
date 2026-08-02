@@ -96,3 +96,36 @@ export const IA_MEMOIRE_AVANCEE: Record<NiveauIA, boolean> = {
  * mais pas systématiquement, 1 fois sur 2 seulement.
  */
 export const PROBA_SACRIFIER_CARTE_PROTEGEE_POUR_MARIAGE = 0.5
+
+// ── Table de décision — Choix de la couleur d'atout ────────────
+//
+// tableChoixAtout.ts : quand l'IA détient plusieurs mariages
+// potentiels (Roi+Dame de couleurs différentes) avant que l'atout
+// soit fixé, chaque couleur candidate reçoit un score = somme
+// pondérée de 3 facteurs indépendants. Remplace le choix "premier
+// trouvé par ordre de détection" (spades>hearts>diamonds>clubs).
+
+/**
+ * Poids par carte de la couleur candidate déjà en main/étalées.
+ * Plus l'IA détient de cartes de cette couleur, plus elle contrôlera
+ * les plis une fois cette couleur déclarée atout.
+ */
+export const POIDS_ATOUT_EN_MAIN_CHOIX_ATOUT = 2
+
+/**
+ * Bonus si la quinte (As+10+Valet de cette couleur) reste
+ * mathématiquement atteignable (déjà en main, ou encore non vue —
+ * cf. combinaisonEncoreAtteignable). Volontairement modéré : rester
+ * "atteignable" n'est qu'une possibilité, pas une garantie (les
+ * cartes manquantes peuvent finir en main adverse) — ce facteur ne
+ * doit donc pas écraser les deux autres, qui reposent sur des cartes
+ * déjà tenues avec certitude.
+ */
+export const BONUS_QUINTE_ATTEIGNABLE_CHOIX_ATOUT = 15
+
+/**
+ * Poids par brisque (As/10) de cette couleur déjà tenue en main —
+ * un gain de points sûr si cette couleur devient atout, contrairement
+ * aux cartes non vues qui ne sont qu'une probabilité.
+ */
+export const POIDS_BRISQUE_EN_MAIN_CHOIX_ATOUT = 5

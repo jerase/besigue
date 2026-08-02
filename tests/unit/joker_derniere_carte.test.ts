@@ -44,6 +44,7 @@ function makeStateFinale(
       carteJoueur0: null,
       carteJoueur1: carteOuverteIA,
       joueurOuvreur: 1,
+      cartes: [null, carteOuverteIA],
     },
     pioche: [],
   })

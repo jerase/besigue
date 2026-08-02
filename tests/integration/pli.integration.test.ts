@@ -159,7 +159,7 @@ describe('Intégration IT-3 — bonus 7 d\'atout', () => {
         state.joueurs[1],
       ],
       joueurActif: 0,
-      pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0 },
+      pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0, cartes: [null, null] },
     }
 
     // J0 joue le 7 d'atout
@@ -191,7 +191,7 @@ describe('Intégration IT-3 — transition phase finale', () => {
     state = { ...state, pioche: [], phase: 'libre' }
 
     // Simuler un pli
-    state = { ...state, joueurActif: 0, pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0 } }
+    state = { ...state, joueurActif: 0, pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0, cartes: [null, null] } }
     const r1 = jouerCarte(state, 0, state.joueurs[0].main[0].id)
     let s = r1.state
     s = { ...s, joueurActif: 1 }

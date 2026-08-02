@@ -300,8 +300,15 @@ function detecterCarresNormaux(
  cartesCombi = candidats.slice(0, 4)
  } else if (candidats.length === 3 && jokers.length > 0) {
  // 1 Joker peut compléter à 4
+ //
+ // BUGFIX : un Joker ne peut participer qu'à UNE SEULE combinaison
+ // annoncée et étalée, tous types confondus (règle du jeu). La
+ // disponibilité doit donc être vérifiée sur TOUTES les annonces de
+ // ce joueur, pas seulement celles du même type de carré (`nom`) —
+ // sinon un Joker déjà étalé dans, par exemple, un 4_roi serait
+ // encore proposé (et pourrait être réutilisé) pour un 4_valet.
  const jokerDispo = jokers.find(j =>
- !annonces.some(a => a.joueurId === joueurId && a.nom === nom && a.cartesIds.includes(j.id))
+ !annonces.some(a => a.joueurId === joueurId && a.cartesIds.includes(j.id))
 )
  if (jokerDispo) cartesCombi = [...candidats, jokerDispo]
  }
@@ -442,7 +449,7 @@ export function appliquerAnnonce(
  }
  }
  // Enregistrer le mariage_Atout actif
- const mariages = { ...(newState.mariagesAtoutActifs ?? { 0: [], 1: [] }) }
+ const mariages = [...(newState.mariagesAtoutActifs ?? [[], []])]
  mariages[joueurId] = [...(mariages[joueurId] ?? []), [roiId, dameId]]
  newState = { ...newState, mariagesAtoutActifs: mariages }
  }
@@ -465,7 +472,7 @@ export function gererCassureMariageAtout(
  joueurId: 0 | 1,
  carteJoueeId: string
 ): GameState {
- const mariages = state.mariagesAtoutActifs ?? { 0: [], 1: [] }
+ const mariages = state.mariagesAtoutActifs ?? [[], []]
  const mariagesJoueur = mariages[joueurId] ?? []
 
  // Trouver les mariages qui contiennent cette carte
@@ -474,7 +481,8 @@ export function gererCassureMariageAtout(
 
  // Retirer ces mariages de la liste des actifs
  const mariagesRestants = mariagesJoueur.filter(m => !m.includes(carteJoueeId))
- const newMariages = { ...mariages, [joueurId]: mariagesRestants }
+ const newMariages = [...mariages]
+ newMariages[joueurId] = mariagesRestants
 
  logger.info('ATOUT', `Mariage_Atout cassé pour J${joueurId} en jouant ${carteJoueeId}`)
  return { ...state, mariagesAtoutActifs: newMariages }
@@ -489,6 +497,6 @@ export function initialiserChampsIT4(state: GameState): GameState {
  ...state,
  annonces: [],
  usagesCartes: [],
- mariagesAtoutActifs: { 0: [], 1: [] },
+ mariagesAtoutActifs: [[], []],
  }
 }

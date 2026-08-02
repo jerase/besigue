@@ -61,7 +61,7 @@ function makeStateAvecPli(
   const base = initialiserChampsIT4({
     ...state,
     couleurAtout,
-    pliEnCours: { carteJoueur0: carteHumain, carteJoueur1: null, joueurOuvreur: 0 },
+    pliEnCours: { carteJoueur0: carteHumain, carteJoueur1: null, joueurOuvreur: 0, cartes: [carteHumain, null] },
     pioche: Array.from({ length: nbPioche }, (_, i) => c('clubs', '7')),
   })
   const joueurs = [...base.joueurs] as typeof base.joueurs
@@ -392,7 +392,7 @@ describe('Non-régression — pas de 10 joué par l\'humain', () => {
     const base = initialiserChampsIT4({
       ...state,
       couleurAtout: 'clubs',
-      pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 1 },
+      pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 1, cartes: [null, null] },
     })
     const joueurs = [...base.joueurs] as typeof base.joueurs
     joueurs[1] = { ...joueurs[1], main: mainIA2, cartesEtalees: [] }

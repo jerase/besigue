@@ -26,10 +26,10 @@ function makeState(
     ...state,
     joueurs,
     joueurActif: 0,  // forcer J0 pour les tests
-    pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0 },
+    pliEnCours: { carteJoueur0: null, carteJoueur1: null, joueurOuvreur: 0, cartes: [null, null] },
     annonces: [],
     usagesCartes: [],
-    mariagesAtoutActifs: { 0: [], 1: [] },
+    mariagesAtoutActifs: [[], []],
     ...overrides,
   }
 }
@@ -138,7 +138,7 @@ describe('Cartes étalées — obligation de couleur en phase finale', () => {
     const state = makeState([], [carteEtalee], {
       couleurAtout: atout,
       phase: 'finale',
-      pliEnCours: { carteJoueur0: null, carteJoueur1: carteAdverse, joueurOuvreur: 1 },
+      pliEnCours: { carteJoueur0: null, carteJoueur1: carteAdverse, joueurOuvreur: 1, cartes: [null, carteAdverse] },
     })
 
     const { ok } = jouerCarte(state, 0, carteEtalee.id)
@@ -190,7 +190,7 @@ describe('Cartes étalées — obligation de couleur en phase finale', () => {
     const state = makeState([], [carteEtalee], {
       couleurAtout: atout,
       phase: 'finale',
-      pliEnCours: { carteJoueur0: null, carteJoueur1: carteAdverse, joueurOuvreur: 1 },
+      pliEnCours: { carteJoueur0: null, carteJoueur1: carteAdverse, joueurOuvreur: 1, cartes: [null, carteAdverse] },
     })
 
     const { ok } = jouerCarte(state, 0, carteEtalee.id)
@@ -207,7 +207,7 @@ describe('Cartes étalées — obligation de couleur en phase finale', () => {
     const state = makeState([], [carteObligation, carteInterdite], {
       couleurAtout: atout,
       phase: 'finale',
-      pliEnCours: { carteJoueur0: null, carteJoueur1: carteAdverse, joueurOuvreur: 1 },
+      pliEnCours: { carteJoueur0: null, carteJoueur1: carteAdverse, joueurOuvreur: 1, cartes: [null, carteAdverse] },
     })
 
     const { ok: okInterdite } = jouerCarte(state, 0, carteInterdite.id)
