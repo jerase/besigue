@@ -81,13 +81,12 @@ function assertIACompatible(state: GameState, fonction: string): void {
  * S'applique uniquement pour les niveaux intermédiaire et difficile —
  * n'est jamais appelée pour le niveau facile (cf. switch ci-dessous).
  */
-export function preferEtaleeSiPossible(
+export function preferEtaleeSiPossible (
   carteChoisie: Carte,
   state: GameState,
   candidats: Carte[]
 ): Carte {
   if (carteChoisie.estJoker) return carteChoisie // pas de « semblable » pour un Joker
-
   const ia = state.joueurs[1]
 
   // La carte choisie est déjà une carte étalée → rien à changer
