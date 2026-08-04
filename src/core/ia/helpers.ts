@@ -53,20 +53,6 @@ export function candidatsGagnants(
 
 // ── Protection des combinaisons ───────────────────────────────
 
-/** Vérifie si le joueur a déjà annoncé un mariage d'atout dans cette manche */
-export function aMariageAtoutAnnonce(state: GameState, joueurId: 0 | 1): boolean {
-  return state.annonces.some(
-    a => a.joueurId === joueurId && a.nom === 'mariage_atout'
-  )
-}
-
-/** Vérifie si le premier bésigue a été annoncé dans cette manche (par ce joueur) */
-export function aPremierBesigueAnnonce(state: GameState, joueurId: 0 | 1): boolean {
-  return state.premierBesiguePose && state.annonces.some(
-    a => a.joueurId === joueurId && a.nom === 'besigue'
-  )
-}
-
 /**
  * Retourne un Set des IDs de cartes que l'IA doit préserver car elles
  * restent éligibles à au moins un type de combinaison (mariage, quinte,

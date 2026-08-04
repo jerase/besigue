@@ -169,10 +169,4 @@ export const CarteComponent: React.FC<CarteProps> = ({
 )
 }
 
-// ─── Indicateurs couleur pour filtres/brisques dans DeckDisplay ──────────────
-export const COULEUR_CSS: Record<string, string> = {
- spades: '#111', clubs: '#111', hearts: '#c0392b', diamonds: '#c0392b',
-}
 export { SYMBOLE_COULEUR }
-
-export default CarteComponent

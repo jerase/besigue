@@ -184,5 +184,3 @@ const Btn: React.FC<{
  </button>
 )
 }
-
-export default EcranAccueil

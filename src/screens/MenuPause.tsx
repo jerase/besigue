@@ -70,5 +70,3 @@ const BoutonPause: React.FC<{
  </button>
 )
 }
-
-export default MenuPause

@@ -155,5 +155,3 @@ const ParamLigne: React.FC<{ label: string; valeur: string }> = ({ label, valeur
  <span className="text-white/70 font-medium">{valeur}</span>
  </div>
 )
-
-export default EcranConfig

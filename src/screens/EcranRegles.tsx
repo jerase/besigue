@@ -192,5 +192,3 @@ const LigneCombi: React.FC<{
  <td className={`py-2.5 text-right font-bold tabular-nums ${accent ? 'text-amber-400' : 'text-white/70'}`}>{pts}</td>
  </tr>
 )
-
-export default EcranRegles

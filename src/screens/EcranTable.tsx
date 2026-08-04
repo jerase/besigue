@@ -602,5 +602,3 @@ const PiocheVisuel: React.FC<{ nbCartes: number }> = ({ nbCartes }) => {
  </div>
 )
 }
-
-export default EcranTable

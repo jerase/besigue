@@ -245,5 +245,3 @@ const ScoreTotal: React.FC<{ score: number; estVainqueur: boolean }> = ({ score,
  {estVainqueur && <div className="text-amber-400 text-xs mt-0.5">✓ Manche</div>}
  </div>
 )
-
-export default EcranFinManche

@@ -149,5 +149,3 @@ export const HistoriqueAnnonces: React.FC<HistoriqueAnnoncesProps> = ({ annonces
  </div>
 )
 }
-
-export default AnnouncementPanel

@@ -147,5 +147,3 @@ const PhaseBadge: React.FC<{ phase: string }> = ({ phase }) => {
  </span>
 )
 }
-
-export default PanneauScore

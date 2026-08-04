@@ -143,4 +143,3 @@ export const EcranTutoriel: React.FC<TutorielProps> = ({ onTerminer }) => {
  </div>
 )
 }
-export default EcranTutoriel
