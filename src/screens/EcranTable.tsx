@@ -2,7 +2,8 @@
 // ÉCRAN TABLE
 // ============================================================
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { Reorder } from 'framer-motion'
 import type { GameState, GameConfig, Carte, CombinaisonDisponible, AnnoncePosee } from '../types'
 import { CarteComponent } from '../components/ui/Carte'
 import { PanneauScore } from '../components/ui/PanneauScore'
@@ -93,6 +94,34 @@ export function grouperCartesEtalees(
  }
 
  return groupes
+}
+
+// ── Ordre d'affichage libre de la main du joueur humain ────────
+//
+// Le joueur peut glisser-déposer ses cartes pour les réorganiser à sa
+// convenance (ex. rapprocher deux cartes d'une combinaison en préparation).
+// Cet ordre est purement un confort d'affichage : il ne touche jamais à
+// state.joueurs[0].main (dont l'ordre n'a aucune incidence sur les règles
+// du jeu — recherche systématique par id, cf. core/pli.ts, core/combinaisons.ts).
+//
+// `reconcilierOrdreMain` réconcilie l'ordre choisi par le joueur avec le
+// contenu réel de sa main à chaque changement (pioche, carte jouée,
+// carte étalée) :
+//   - les cartes toujours en main conservent leur position relative choisie
+//   - les cartes qui ont quitté la main (jouées / étalées) disparaissent
+//   - les cartes nouvellement arrivées (pioche, nouvelle manche) sont
+//     ajoutées à la fin, dans leur ordre naturel de distribution
+//
+// Fonction pure, testable indépendamment du rendu / du drag-and-drop.
+export function reconcilierOrdreMain(ordrePrecedent: string[], main: Carte[]): string[] {
+ const idsActuels = main.map(c => c.id)
+ const presentsActuellement = new Set(idsActuels)
+
+ const conserves = ordrePrecedent.filter(id => presentsActuellement.has(id))
+ const dejaConserves = new Set(conserves)
+ const nouveaux = idsActuels.filter(id => !dejaConserves.has(id))
+
+ return [...conserves, ...nouveaux]
 }
 
 // ── Composant paire de mariage superposée ─────────────────────
@@ -289,6 +318,23 @@ export const EcranTable: React.FC<TableJeuProps> = ({
  const humainPeutJouer = phaseUI === 'attente_joueur' && !peutPasser
  const annonces = state.annonces ?? []
 
+ // Ordre d'affichage libre de la main (glisser-déposer) — cf. reconcilierOrdreMain.
+ // Dépendance directe sur joueurHumain.main : l'effet est idempotent (une
+ // réconciliation sans changement réel de contenu retourne un tableau de
+ // mêmes ids dans le même ordre), donc son déclenchement à chaque nouvelle
+ // référence de main (même sans changement de contenu) est sans incidence.
+ const [ordreMain, setOrdreMain] = useState<string[]>(() => joueurHumain.main.map(c => c.id))
+ useEffect(() => {
+ setOrdreMain(prev => {
+ const nouveau = reconcilierOrdreMain(prev, joueurHumain.main)
+ const inchange = nouveau.length === prev.length && nouveau.every((id, i) => id === prev[i])
+ return inchange ? prev : nouveau
+ })
+ }, [joueurHumain.main])
+ const mainOrdonnee = ordreMain
+ .map(id => joueurHumain.main.find(c => c.id === id))
+ .filter((c): c is Carte => c !== undefined)
+
  const handleClick = (carte: Carte) => {
  if (!humainPeutJouer) return
  setCarteSelectionnee(prev => prev === carte.id ? null : carte.id)
@@ -409,22 +455,35 @@ export const EcranTable: React.FC<TableJeuProps> = ({
  </div>
  </div>
 
- {/* Main humain */}
- <div className="flex flex-wrap gap-2 min-h-[100px]">
- {joueurHumain.main.map(carte => {
+ {/* Main humain — glisser-déposer pour réorganiser librement l'affichage */}
+ <Reorder.Group
+ as="div"
+ axis="x"
+ values={ordreMain}
+ onReorder={setOrdreMain}
+ className="flex flex-wrap gap-2 min-h-[100px]"
+ >
+ {mainOrdonnee.map(carte => {
  const estSelectionnee = carteSelectionnee === carte.id
  const etat = !humainPeutJouer ? 'disabled' : estSelectionnee ? 'selected' : 'faceUp'
  return (
- <CarteComponent
+ <Reorder.Item
  key={carte.id}
+ value={carte.id}
+ as="div"
+ className="cursor-grab active:cursor-grabbing"
+ whileDrag={{ scale: 1.08, zIndex: 10 }}
+ >
+ <CarteComponent
  carte={{ ...carte, faceUp: true, etat }}
  taille="md"
  onClick={humainPeutJouer ? handleClick : undefined}
  onDoubleClick={humainPeutJouer ? handleDoubleClick : undefined}
- />
+/>
+ </Reorder.Item>
 )
  })}
- </div>
+ </Reorder.Group>
 
  {/* Cartes étalées humain — mariages et bésigues superposés, toutes cliquables */}
  {joueurHumain.cartesEtalees.length > 0 && (
