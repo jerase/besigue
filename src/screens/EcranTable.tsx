@@ -551,15 +551,16 @@ export const EcranTable: React.FC<TableJeuProps> = ({
  </div>
  </div>
 
- {/* Main humain — glisser-déposer (Point C : appui long sur mobile) +
- tri automatique (Point F). Point A : ligne unique défilante sur
- écran étroit tactile plutôt que retour à la ligne (cf. useEcranMobile),
- pour respecter l'hypothèse d'ordre 1D du glisser-déposer. */}
+ {/* Main humain — glisser-déposer (Point C : appui long sur mobile,
+ pour ne pas interférer avec un tap qui sélectionne/joue une carte)
+ + tri automatique (Point F). Retour à la ligne multi-lignes, y
+ compris sur écran mobile, à l'identique de l'affichage des dos de
+ carte de l'IA ci-dessus (flex-wrap). */}
  <div className="flex items-center gap-2 mb-1">
  <span className="text-[10px] text-white/25 uppercase tracking-widest">Ma main</span>
  <button
  onClick={handleTrierMain}
- className="text-[10px] uppercase tracking-widest text-white/40 hover:text-white/70 border border-white/15 hover:border-white/30 rounded px-2 py-0.5 transition-colors"
+ className="text-[10px] font-bold uppercase tracking-widest text-black bg-amber-400 hover:bg-amber-300 active:bg-amber-500 shadow-sm shadow-amber-400/30 rounded px-2.5 py-1 transition-colors"
  title="Trier la main par couleur puis par rang"
  >
  Trier ma main
@@ -571,10 +572,7 @@ export const EcranTable: React.FC<TableJeuProps> = ({
  values={ordreMain}
  onReorder={setOrdreMain}
  data-testid="main-joueur"
- className={ecranMobile
- ? "flex flex-nowrap overflow-x-auto gap-2 min-h-[100px] pb-2 -mx-4 px-4"
- : "flex flex-wrap gap-2 min-h-[100px]"
- }
+ className="flex flex-wrap gap-2 min-h-[100px]"
  >
  {mainOrdonnee.map(carte => {
  const estSelectionnee = carteSelectionnee === carte.id
