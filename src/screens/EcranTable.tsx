@@ -3,14 +3,17 @@
 // ============================================================
 
 import React, { useState, useEffect } from 'react'
-import { Reorder } from 'framer-motion'
+import { Reorder, useDragControls } from 'framer-motion'
 import type { GameState, GameConfig, Carte, CombinaisonDisponible, AnnoncePosee } from '../types'
+import { ORDRE_RANGS } from '../types'
 import { CarteComponent } from '../components/ui/Carte'
 import { PanneauScore } from '../components/ui/PanneauScore'
 import { AnnouncementPanel, HistoriqueAnnonces } from '../components/ui/AnnouncementPanel'
 import { compterBrisques } from '../core/deck'
 import { NB_CARTES_PIOCHE_INITIALE } from '../core/init'
 import type { PhaseUI } from '../hooks/useGameEngine'
+import { useEcranMobile } from '../hooks/useEcranMobile'
+import { useLongPress } from '../hooks/useLongPress'
 
 // ── Groupement des cartes étalées (mariages + bésigues superposés) ──
 
@@ -122,6 +125,32 @@ export function reconcilierOrdreMain(ordrePrecedent: string[], main: Carte[]): s
  const nouveaux = idsActuels.filter(id => !dejaConserves.has(id))
 
  return [...conserves, ...nouveaux]
+}
+
+// ── Tri automatique de la main (Point F) ────────────────────────
+//
+// Répond au besoin sous-jacent le plus fréquent (« je veux regrouper mes
+// cartes ») sans nécessiter le moindre geste fin — utile en complément du
+// glisser-déposer, en particulier sur petit écran où un réarrangement
+// carte par carte est plus coûteux.
+//
+// Regroupe par couleur puis, à l'intérieur d'une couleur, du rang le plus
+// fort au plus faible (ORDRE_RANGS, déjà utilisé ailleurs dans le moteur
+// de jeu — cf. src/types/index.ts). L'ordre des couleurs est une simple
+// convention d'affichage (pique, cœur, trèfle, carreau) sans signification
+// pour les règles.
+export const ORDRE_COULEURS_TRI: Record<Carte['couleur'], number> = {
+ spades: 0, hearts: 1, clubs: 2, diamonds: 3,
+}
+
+/** Trie une main par couleur puis par rang décroissant. Fonction pure. */
+export function trierMain(main: Carte[]): Carte[] {
+ return [...main].sort((a, b) => {
+ if (a.couleur !== b.couleur) {
+ return ORDRE_COULEURS_TRI[a.couleur] - ORDRE_COULEURS_TRI[b.couleur]
+ }
+ return ORDRE_RANGS[b.rang] - ORDRE_RANGS[a.rang]
+})
 }
 
 // ── Composant paire de mariage superposée ─────────────────────
@@ -290,6 +319,65 @@ const RenduGroupe: React.FC<RenduGroupeProps> = ({
 )
 }
 
+// ── Carte de la main du joueur, réorganisable par glisser-déposer ──
+//
+// Deux comportements selon le contexte (cf. useEcranMobile) :
+//   - desktop (souris) : glisser-déposer immédiat, comme avant — un clic
+//     et un début de glissé se distinguent déjà bien à la souris ;
+//   - mobile (tactile + écran étroit) : le glisser-déposer n'est armé
+//     qu'après un appui maintenu (Point C), pour ne jamais interférer
+//     avec un tap qui sélectionne/joue la carte, ni avec le défilement
+//     horizontal de la main (Point A).
+interface CarteMainGlissableProps {
+ carte: Carte
+ etat: 'faceUp' | 'selected' | 'disabled'
+ taille: 'sm' | 'md'
+ ecranMobile: boolean
+ onClick?: (carte: Carte) => void
+ onDoubleClick?: (carte: Carte) => void
+}
+
+const CarteMainGlissable: React.FC<CarteMainGlissableProps> = ({
+ carte, etat, taille, ecranMobile, onClick, onDoubleClick,
+}) => {
+ const controls = useDragControls()
+ const longPress = useLongPress(
+ (e) => controls.start(e),
+ { seuilMs: 300, toleranceDeplacementPx: 8 }
+)
+
+ const proprietesGlissement = ecranMobile
+ ? {
+ dragListener: false,
+ dragControls: controls,
+ onPointerDown: longPress.onPointerDown,
+ onPointerMove: longPress.onPointerMove,
+ onPointerUp: longPress.onPointerUp,
+ onPointerLeave: longPress.onPointerLeave,
+ onPointerCancel: longPress.onPointerCancel,
+ }
+ : {}
+
+ return (
+ <Reorder.Item
+ value={carte.id}
+ as="div"
+ className={`shrink-0 cursor-grab active:cursor-grabbing ${
+ ecranMobile && longPress.arme ? 'ring-2 ring-amber-400/70 rounded-lg' : ''
+ }`}
+ whileDrag={{ scale: 1.08, zIndex: 10 }}
+ {...proprietesGlissement}
+ >
+ <CarteComponent
+ carte={{ ...carte, faceUp: true, etat }}
+ taille={taille}
+ onClick={onClick}
+ onDoubleClick={onDoubleClick}
+ />
+ </Reorder.Item>
+)
+}
+
 interface TableJeuProps {
  state: GameState
  config: GameConfig
@@ -317,6 +405,11 @@ export const EcranTable: React.FC<TableJeuProps> = ({
  // Pendant la phase annonce, on ne joue pas de carte
  const humainPeutJouer = phaseUI === 'attente_joueur' && !peutPasser
  const annonces = state.annonces ?? []
+
+ // Point A / Point C : mode mobile (tactile + écran étroit combinés,
+ // cf. useEcranMobile) — pilote la mise en page en ligne unique défilante
+ // et l'armement du glisser-déposer par appui long.
+ const ecranMobile = useEcranMobile()
 
  // Ordre d'affichage libre de la main (glisser-déposer) — cf. reconcilierOrdreMain.
  // Dépendance directe sur joueurHumain.main : l'effet est idempotent (une
@@ -346,6 +439,9 @@ export const EcranTable: React.FC<TableJeuProps> = ({
  }
  const handleJouerSelectionne = () => {
  if (carteSelectionnee) { onJouerCarte(carteSelectionnee); setCarteSelectionnee(null) }
+ }
+ const handleTrierMain = () => {
+ setOrdreMain(trierMain(joueurHumain.main).map(c => c.id))
  }
 
  return (
@@ -455,32 +551,44 @@ export const EcranTable: React.FC<TableJeuProps> = ({
  </div>
  </div>
 
- {/* Main humain — glisser-déposer pour réorganiser librement l'affichage */}
+ {/* Main humain — glisser-déposer (Point C : appui long sur mobile) +
+ tri automatique (Point F). Point A : ligne unique défilante sur
+ écran étroit tactile plutôt que retour à la ligne (cf. useEcranMobile),
+ pour respecter l'hypothèse d'ordre 1D du glisser-déposer. */}
+ <div className="flex items-center gap-2 mb-1">
+ <span className="text-[10px] text-white/25 uppercase tracking-widest">Ma main</span>
+ <button
+ onClick={handleTrierMain}
+ className="text-[10px] uppercase tracking-widest text-white/40 hover:text-white/70 border border-white/15 hover:border-white/30 rounded px-2 py-0.5 transition-colors"
+ title="Trier la main par couleur puis par rang"
+ >
+ Trier ma main
+ </button>
+ </div>
  <Reorder.Group
  as="div"
  axis="x"
  values={ordreMain}
  onReorder={setOrdreMain}
- className="flex flex-wrap gap-2 min-h-[100px]"
+ data-testid="main-joueur"
+ className={ecranMobile
+ ? "flex flex-nowrap overflow-x-auto gap-2 min-h-[100px] pb-2 -mx-4 px-4"
+ : "flex flex-wrap gap-2 min-h-[100px]"
+ }
  >
  {mainOrdonnee.map(carte => {
  const estSelectionnee = carteSelectionnee === carte.id
  const etat = !humainPeutJouer ? 'disabled' : estSelectionnee ? 'selected' : 'faceUp'
  return (
- <Reorder.Item
+ <CarteMainGlissable
  key={carte.id}
- value={carte.id}
- as="div"
- className="cursor-grab active:cursor-grabbing"
- whileDrag={{ scale: 1.08, zIndex: 10 }}
- >
- <CarteComponent
- carte={{ ...carte, faceUp: true, etat }}
- taille="md"
+ carte={carte}
+ etat={etat}
+ taille={ecranMobile ? 'sm' : 'md'}
+ ecranMobile={ecranMobile}
  onClick={humainPeutJouer ? handleClick : undefined}
  onDoubleClick={humainPeutJouer ? handleDoubleClick : undefined}
-/>
- </Reorder.Item>
+ />
 )
  })}
  </Reorder.Group>
