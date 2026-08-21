@@ -135,20 +135,39 @@ export function calculerEligibiliteCarte(
       const quinteDejaAnnoncee = annonces.some(a => a.joueurId === joueurId && a.nom === 'quinte')
       const mariageAtoutAnnonce = annonces.some(a => a.joueurId === joueurId && a.nom === 'mariage_atout')
       if (!quinteDejaAnnoncee) {
-        const rangsQuinte: Rang[] = ['A', '10', 'J']
-        if (mariageAtoutAnnonce) {
-          const atteignable = rangsQuinte.every(rang => {
-            const presente = main.filter(p => p.couleur === atout && p.rang === rang).length
-            return combinaisonEncoreAtteignable(
-              state, { rang, couleur: atout, quantiteRequise: 1, quantitePresente: presente }, joueurId
+        // La quinte n'exige qu'UN SEUL exemplaire de chaque rang (As/10/
+        // Valet) d'atout. Si l'IA détient PLUSIEURS cartes de même rang
+        // d'atout (copies différentes, ex. deux As d'atout), une seule
+        // est réellement « la pièce de la quinte » — les autres sont de
+        // vrais doublons libres, exactement comme pour le mariage_atout
+        // actif (cf. cartesProtegeesParCombinaisons ci-dessous, qui
+        // distingue déjà la paire mariée précise d'un doublon non marié
+        // via mariagesAtoutActifs). Sans cette distinction, TOUTES les
+        // copies d'un même rang seraient protégées indéfiniment, y
+        // compris un doublon qui ne sert à rien pour la quinte.
+        // Choix stable et arbitraire (tri par id) pour départager de
+        // façon déterministe QUELLE copie est « la » pièce protégée.
+        const memeRangEnMain = main
+          .filter(p => !p.estJoker && p.couleur === atout && p.rang === carte.rang)
+          .sort((a, b) => a.id.localeCompare(b.id))
+        const estLaPieceDeQuinte = memeRangEnMain.length > 0 && memeRangEnMain[0].id === carte.id
+
+        if (estLaPieceDeQuinte) {
+          const rangsQuinte: Rang[] = ['A', '10', 'J']
+          if (mariageAtoutAnnonce) {
+            const atteignable = rangsQuinte.every(rang => {
+              const presente = main.filter(p => p.couleur === atout && p.rang === rang).length
+              return combinaisonEncoreAtteignable(
+                state, { rang, couleur: atout, quantiteRequise: 1, quantitePresente: presente }, joueurId
+              )
+            })
+            if (atteignable) types.push('quinte')
+          } else {
+            const toutesPresentesEnMain = rangsQuinte.every(rang =>
+              main.some(p => !p.estJoker && p.couleur === atout && p.rang === rang)
             )
-          })
-          if (atteignable) types.push('quinte')
-        } else {
-          const toutesPresentesEnMain = rangsQuinte.every(rang =>
-            main.some(p => !p.estJoker && p.couleur === atout && p.rang === rang)
-          )
-          if (toutesPresentesEnMain) types.push('quinte')
+            if (toutesPresentesEnMain) types.push('quinte')
+          }
         }
       }
     }
@@ -228,13 +247,60 @@ export function calculerTableCombinaisons(
 /**
  * (b) Cartes à protéger d'un sacrifice : celles ayant au moins un type
  * éligible. Remplace cartesUtilesAuxCombis (helpers.ts).
+ *
+ * Gate phase finale : dès que `state.phase === 'finale'` (déclenché par
+ * useGameEngine.ts, effectuerPioche, exactement quand la pioche se vide
+ * — signal dédié et explicite, PAS `state.pioche.length === 0` utilisé
+ * seul : plusieurs états de test construisent une pioche vide sans
+ * vouloir représenter une vraie phase finale, cf.
+ * tests/unit/cartes_utiles_atteignabilite.test.ts), AUCUNE combinaison
+ * ne peut plus jamais être annoncée (useGameEngine.ts, proposerAnnonces :
+ * `if (s.phase === 'finale') { effectuerPioche(...); return }` — la
+ * proposition d'annonce est purement et simplement sautée). Toute
+ * protection de carte au titre d'une combinaison future (mariage,
+ * quinte, carré, bésigue) devient donc sans objet à partir de ce point :
+ * il n'y a plus rien à préserver. Seul le bonus du 7 d'atout (+10 pts,
+ * cf. pli.ts) reste actif en phase finale, mais ce n'est pas une
+ * combinaison à annoncer — c'est un effet automatique appliqué à la
+ * carte jouée, indépendant de toute protection. Retourne donc un
+ * ensemble vide sans même calculer la matrice d'éligibilité.
+ *
+ * S'y ajoute, hors phase finale, une protection INDÉPENDANTE de la
+ * matrice d'éligibilité ci-dessus : le Roi et la Dame d'un mariage_atout
+ * encore ACTIF (state.mariagesAtoutActifs) restent protégés tant que ce
+ * joueur n'a pas encore annoncé sa quinte — car la quinte (As+10+Valet
+ * d'atout) exige EXPLICITEMENT un mariage_atout actif comme prérequis
+ * (cf. detecterQuinte, combinaisons.ts : `mariagesActifs.length === 0
+ * → return []`). Jouer ce Roi ou cette Dame romprait le mariage
+ * (gererCassureMariageAtout) et rendrait la quinte définitivement
+ * impossible pour la manche en cours, même si l'As/10/Valet d'atout
+ * sont réunis ensuite. Cette protection s'applique MÊME si le Roi/la
+ * Dame est par ailleurs "épuisé(e)" pour de nouvelles annonces
+ * (mariage déjà annoncé une fois, donc exclu de FAMILLE_MARIAGE ci-
+ * dessus) : le rôle de prérequis actif est distinct du rôle
+ * d'éligibilité à une NOUVELLE annonce. Une fois la quinte annoncée,
+ * le mariage a rempli son rôle de prérequis et n'a plus besoin d'être
+ * protégé à ce titre (l'IA peut alors le casser si besoin).
  */
 export function cartesProtegeesParCombinaisons(state: GameState, joueurId: 0 | 1 = 1): Set<string> {
+  if (state.phase === 'finale') return new Set<string>()
+
   const table = calculerTableCombinaisons(state, joueurId)
   const proteges = new Set<string>()
   for (const ligne of table) {
     if (ligne.typesEligibles.length > 0) proteges.add(ligne.carteId)
   }
+
+  const annonces = state.annonces ?? []
+  const quinteAnnoncee = annonces.some(a => a.joueurId === joueurId && a.nom === 'quinte')
+  if (!quinteAnnoncee) {
+    const mariagesActifs = state.mariagesAtoutActifs?.[joueurId] ?? []
+    for (const [roiId, dameId] of mariagesActifs) {
+      proteges.add(roiId)
+      proteges.add(dameId)
+    }
+  }
+
   return proteges
 }
 

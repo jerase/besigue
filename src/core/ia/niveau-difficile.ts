@@ -33,6 +33,7 @@ import {
 } from './strategies-avancees'
 import { brisquesNonVuesRestantes } from './memoire'
 import { objectifBrisqueAtteignable } from './anticipation'
+import { calculerValeurEspereeBrisque } from './tableBrisques'
 import { choisirCarteMinimaxFinale } from './minimaxFinale'
 
 /** Retourne la 2e meilleure carte selon une probabilité aléatoire */
@@ -132,9 +133,26 @@ export function iaDifficile(candidats: Carte[], state: GameState): Carte {
   // devenu mathématiquement hors de portée (repli : préserver le score plutôt
   // que de continuer à sacrifier des cartes pour une bataille de brisques perdue)
   const modePrudent = (manchesIA >= 3 && manchesHumain === 0) || objectifBrisques?.mode === 'repli'
+  // Piste 1 : mode agressif "effectif" — le sacrifice de cartes protégées par
+  // une combinaison en cours (cf. bloc RÉPONSE ci-dessous) n'est justifié que
+  // tant que l'objectif de 16 brisques n'est pas déjà garanti. Une fois les
+  // 16 brisques acquises (objectifBrisques.mode === 'atteint'), l'égalité
+  // minimale de fin de manche est déjà assurée : détruire une combinaison
+  // pour une brisque supplémentaire n'apporte plus rien et coûte des points
+  // d'annonce inutilement. Repli sur le comportement normal dans ce cas
+  // (préservation des combinaisons, cf. gagnantsSansUtiles plus bas).
+  const modeAgressifActif = modeAgressif && objectifBrisques?.mode !== 'atteint'
   logger.debug(
     'IA',
-    `Difficile — mode: ${modeAgressif ? 'AGRESSIF' : modePrudent ? 'PRUDENT' : 'NORMAL'}` +
+    `Difficile — mode: ${
+      modeAgressifActif
+        ? 'AGRESSIF'
+        : modeAgressif
+          ? 'AGRESSIF→NORMAL (objectif 16 brisques déjà atteint)'
+          : modePrudent
+            ? 'PRUDENT'
+            : 'NORMAL'
+    }` +
     (objectifBrisques ? ` | brisques: ${objectifBrisques.actuelles}/16 (${objectifBrisques.mode})` : '')
   )
 
@@ -171,7 +189,7 @@ export function iaDifficile(candidats: Carte[], state: GameState): Carte {
 
   // Couper le 10
   if (carteOuverte) {
-    const coupe = strategieCouper10(candidats, carteOuverte, state)
+    const coupe = strategieCouper10(candidats, carteOuverte, state, cartesUtiles)
     if (coupe) {
       logger.debug('IA', `Difficile — Couper10 → ${coupe.rang}${coupe.couleur}`)
       return coupe
@@ -186,8 +204,9 @@ export function iaDifficile(candidats: Carte[], state: GameState): Carte {
       const gagnants = candidatsGagnants(candidats, carteOuverte, couleurAtout, 1)
 
       if (gagnants.length > 0) {
-        // D.2 : Mode agressif
-        if (modeAgressif) {
+        // D.2 : Mode agressif (piste 1 : uniquement si l'objectif de 16
+        // brisques n'est pas déjà garanti — cf. modeAgressifActif ci-dessus)
+        if (modeAgressifActif) {
           logger.debug('IA', 'Difficile — Mode AGRESSIF : gagner la brisque')
           const choix = carteAvecRangMinimal(gagnants)
           const tries = [...gagnants].sort((a, b) => ORDRE_RANGS[a.rang] - ORDRE_RANGS[b.rang])
@@ -206,8 +225,16 @@ export function iaDifficile(candidats: Carte[], state: GameState): Carte {
 
         const meilleur = carteAvecRangMinimal(gagnantsSansUtiles.length > 0 ? gagnantsSansUtiles : gagnants)
         // D.4 : Variation (mode normal uniquement)
-        if (!modePrudent && !modeAgressif) {
-          const tries = [...gagnants].sort((a, b) => ORDRE_RANGS[a.rang] - ORDRE_RANGS[b.rang])
+        //
+        // Bugfix (mariage d'atout protégé) : la variation doit piocher
+        // dans le MÊME pool que `meilleur` (gagnantsSansUtiles en
+        // priorité) — pas dans `gagnants` brut, sans quoi elle pouvait
+        // réintroduire par hasard une carte protégée (ex. la Dame d'un
+        // mariage_atout actif) alors qu'un doublon libre équivalent
+        // était disponible pour le sacrifice.
+        if (!modePrudent && !modeAgressifActif) {
+          const poolVariation = gagnantsSansUtiles.length > 0 ? gagnantsSansUtiles : gagnants
+          const tries = [...poolVariation].sort((a, b) => ORDRE_RANGS[a.rang] - ORDRE_RANGS[b.rang])
           const variation = appliquerVariation(tries)
           if (variation) return variation
         }
@@ -234,14 +261,69 @@ export function iaDifficile(candidats: Carte[], state: GameState): Carte {
     return carteAvecRangMinimal(sansValeur.length > 0 ? sansValeur : sansBrisques.length > 0 ? sansBrisques : candidats)
   }
 
-  // D.2 : Mode agressif → atout fort
-  if (modeAgressif && couleurAtout) {
+  // D.2 : Mode agressif → atout fort (piste 3 : risque de contre évalué,
+  // cartes protégées exclues, variation de style réintroduite).
+  //
+  // Correction par rapport au commentaire précédent (piste 1) : ce bloc
+  // filtre désormais aussi `!cartesUtiles.has(c.id)`, au même titre que
+  // le bloc "Contrôle atout" plus bas. `atoutsFortes` ne contient QUE
+  // l'As et le 10 d'atout (seuls rangs ≥ rang('10') dans ORDRE_RANGS —
+  // K/Q/J en sont exclus, contrairement à une lecture rapide du seuil).
+  // Ces deux cartes peuvent néanmoins être protégées par une quinte en
+  // cours (A+10+J d'atout, cf. detecterQuinte/combinaisons.ts) : le
+  // filtre `cartesUtiles` reste donc pertinent ici. Il utilise
+  // `modeAgressifActif` (piste 1), pas `modeAgressif` brut, pour la
+  // même raison que le bloc RÉPONSE.
+  if (modeAgressifActif && couleurAtout) {
     const atoutsFortes = candidats.filter(c =>
-      !c.estJoker && c.couleur === couleurAtout && ORDRE_RANGS[c.rang] >= ORDRE_RANGS['10']
+      !c.estJoker && c.couleur === couleurAtout &&
+      ORDRE_RANGS[c.rang] >= ORDRE_RANGS['10'] && !cartesUtiles.has(c.id)
     )
     if (atoutsFortes.length > 0) {
-      logger.debug('IA', 'Difficile — Mode AGRESSIF ouverture : atout fort')
-      return carteAvecRangMaximal(atoutsFortes)
+      // atoutsFortes ⊆ {As, 10} d'atout : le meilleur candidat (rang
+      // maximal) est donc TOUJOURS soit l'As, soit le 10.
+      //
+      // - Si c'est l'As : il est IMPARABLE (rang le plus élevé du jeu,
+      //   rien ne peut le battre) — l'exposer ne comporte aucun risque
+      //   réel, quel que soit le reliquat non vu.
+      // - Si c'est le 10 (l'As n'est pas/plus en main) : il PEUT être
+      //   contré par l'As d'atout adverse s'il est encore en jeu — on
+      //   évalue alors le risque qu'une brisque d'atout adverse traîne
+      //   encore (piste 3 : calculerValeurEspereeBrisque, déjà utilisé
+      //   par strategieOuvrirCouleurEpuisee — tableBrisques.ts), pour
+      //   ne pas jeter aveuglément le 10 dans un contre évitable.
+      const meilleurCandidat = carteAvecRangMaximal(atoutsFortes)
+      const esAsInvincible = meilleurCandidat.rang === 'A'
+      const risqueContre = calculerValeurEspereeBrisque(state, couleurAtout, 1)
+
+      if (esAsInvincible || risqueContre < 1) {
+        logger.debug('IA', 'Difficile — Mode AGRESSIF ouverture : atout fort')
+        const choix = carteAvecRangMaximal(atoutsFortes)
+        const tries = [...atoutsFortes].sort((a, b) => ORDRE_RANGS[b.rang] - ORDRE_RANGS[a.rang])
+        return appliquerVariation(tries) ?? choix
+      }
+
+      // Risque de contre significatif ET le meilleur candidat est le 10
+      // (pas l'As — sinon esAsInvincible serait vrai) : le 10 PEUT être
+      // battu par l'As d'atout adverse. Comme atoutsFortes ⊆ {As, 10}
+      // et que l'As est absent ici, il n'existe AUCUNE carte "forte"
+      // alternative plus sûre au sein de ce lot (rang minimal = rang
+      // maximal = le 10 lui-même) : forcer quand même l'exposition
+      // reviendrait exactement au même choix que si le risque n'avait
+      // jamais été évalué — la piste 3 serait alors sans effet réel.
+      //
+      // On cède donc la main à la SUITE de la cascade (pas de return
+      // ici) : "Contrôle atout si brisques restantes élevées" (heuristique
+      // globale indépendante du risque adverse sur cette couleur
+      // précise), puis "Sept d'atout", puis la défausse par défaut —
+      // c'est ce repli qui donne un effet concret et observable à
+      // l'évaluation du risque, plutôt qu'un choix mathématiquement
+      // identique déguisé en branche distincte.
+      logger.debug(
+        'IA',
+        `Difficile — Mode AGRESSIF ouverture : risque de contre (${risqueContre.toFixed(2)}) sur le 10 d'atout → repli sur la cascade normale (pas d'exposition forcée)`
+      )
+      // (pas de return : la fonction continue sur les blocs suivants)
     }
   }
 

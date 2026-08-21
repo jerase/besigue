@@ -24,6 +24,13 @@ export function iaFacile(candidats: Carte[], state: GameState): Carte {
   const couleurAtout = state.couleurAtout
 
   // Comportement 1 : Couper le 10 (avec risque de rater)
+  //
+  // Note : `strategieCouper10` reçoit ici un 4e argument `cartesUtiles`
+  // volontairement omis — le niveau facile n'a par conception aucune
+  // conscience des combinaisons (aucun appel à cartesUtilesAuxCombis
+  // dans tout ce fichier, y compris pour les brisques et l'ouverture) ;
+  // ajouter une protection isolée à cette seule étape serait incohérent
+  // avec son comportement volontairement naïf partout ailleurs.
   if (carteOuverte && carteOuverte.rang === '10') {
     if (Math.random() >= PROBA_RATER_COUPER10) {
       const coupe = strategieCouper10(candidats, carteOuverte, state)

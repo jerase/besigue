@@ -25,6 +25,18 @@ import { PROBA_SACRIFIER_CARTE_PROTEGEE_POUR_MARIAGE } from '../ia.config'
  * potentiel pas encore annoncé (donc avant que l'atout soit défini),
  * retourne cette couleur. Sinon null.
  *
+ * Gate phase finale : comme pour cartesProtegeesParCombinaisons
+ * (tableCombinaisons.ts), dès que state.phase === 'finale', plus
+ * aucune annonce n'est possible (useGameEngine.ts, proposerAnnonces) —
+ * y compris un tout premier mariage_atout jamais encore déclaré (cas
+ * rare mais possible : aucun des deux joueurs n'a jamais eu Roi+Dame de
+ * même couleur pendant toute la phase libre, couleurAtout reste alors
+ * null jusqu'à la phase finale). Réserver un As "pour un mariage futur"
+ * (a.2/a.3) ou garder la main via un Joker "dans l'espoir de piocher un
+ * Roi/Dame" (a.4, alors même que la pioche est vide) n'a plus aucun
+ * sens à ce stade. Retourne donc null sans même consulter
+ * detecterCombinaisonsDisponibles.
+ *
  * Réutilise directement `detecterCombinaisonsDisponibles` (source
  * unique de vérité pour la détection des mariages) plutôt que de
  * dupliquer la logique d'appariement Roi/Dame.
@@ -36,6 +48,7 @@ import { PROBA_SACRIFIER_CARTE_PROTEGEE_POUR_MARIAGE } from '../ia.config'
  */
 export function couleurMariagePotentielNonAnnonce(state: GameState): Couleur | null {
   if (state.couleurAtout !== null) return null
+  if (state.phase === 'finale') return null
   const combis = detecterCombinaisonsDisponibles(state, 1)
   const mariage = meilleureCombiMariageAtout(combis, state, 1)
   if (!mariage) return null
@@ -208,6 +221,16 @@ export function strategieGagnerPourMariage(candidats: Carte[], state: GameState)
  * mariage — dans l'espoir de piocher un Roi ou une Dame complétant
  * une paire.
  *
+ * Gate phase finale explicite : la justification ci-dessus ("dans
+ * l'espoir de piocher") suppose une pioche non vide — en phase finale
+ * (state.phase === 'finale'), il n'y a plus rien à piocher, donc plus
+ * aucune raison de garder la main dans ce but précis. Sans ce garde-
+ * fou explicite, la règle pourrait sembler ne plus s'appliquer
+ * "par accident" via couleurMariagePotentielNonAnnonce (qui retourne
+ * désormais null en phase finale, cf. plus haut) — mais seulement si
+ * l'IA détient un mariage potentiel ; sans mariage en main, elle
+ * continuerait sinon à jouer le Joker pour une raison devenue fausse.
+ *
  * Complète a.2 (qui joue les As) : les deux s'appliquent en parallèle
  * en ouverture pré-atout quand aucun mariage n'est en main.
  */
@@ -216,6 +239,7 @@ export function strategieOuvrirJokerSansMariage(candidats: Carte[], state: GameS
   const couleurAtout = state.couleurAtout
   if (carteOuverte !== null) return null
   if (couleurAtout !== null) return null
+  if (state.phase === 'finale') return null
 
   const couleurMariage = couleurMariagePotentielNonAnnonce(state)
   if (couleurMariage) return null // l'IA a déjà un mariage en main → a.4 ne s'applique pas

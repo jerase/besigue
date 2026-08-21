@@ -42,6 +42,7 @@ export function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
   const couleurAtout = state.couleurAtout
   const piocheRestante = state.pioche.length
   const humain = state.joueurs[0]
+  const cartesUtiles = cartesUtilesAuxCombis(state, 1)
 
   // ── Règles tactiques A/B — priorité absolue sur toute la cascade ──
   if (IA_MEMOIRE_AVANCEE.intermediaire) {
@@ -104,7 +105,7 @@ export function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
 
   // Couper le 10
   if (carteOuverte) {
-    const coupe = strategieCouper10(candidats, carteOuverte, state)
+    const coupe = strategieCouper10(candidats, carteOuverte, state, cartesUtiles)
     if (coupe) {
       logger.debug('IA', `Intermédiaire — Couper10 → ${coupe.rang}${coupe.couleur}`)
       return coupe
@@ -112,6 +113,15 @@ export function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
   }
 
   // Évolution 1 : Couper l'As adverse avec atout
+  //
+  // Bugfix (mariage d'atout protégé) : parmi les atouts gagnants à
+  // égalité de rang minimal, ne PAS choisir en priorité un Roi/Dame
+  // faisant partie d'un mariage_atout encore actif (cartesUtiles, cf.
+  // tableCombinaisons.ts — protège désormais aussi les cartes d'un
+  // mariage_atout actif tant que la quinte n'a pas été annoncée). Si
+  // un doublon libre (même rang+couleur, non marié) existe, il est
+  // sacrifié à la place ; sinon, repli sur l'ensemble des gagnants
+  // (le mariage doit alors être cassé faute d'alternative).
   if (carteOuverte && carteOuverte.rang === 'A' && couleurAtout) {
     if (carteOuverte.couleur !== couleurAtout) {
       const atoutsGagnants = candidatsGagnants(
@@ -119,7 +129,9 @@ export function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
         carteOuverte, couleurAtout, 1
       )
       if (atoutsGagnants.length > 0) {
-        const plusFaible = atoutsGagnants.reduce((min, c) =>
+        const atoutsGagnantsNonUtiles = atoutsGagnants.filter(c => !cartesUtiles.has(c.id))
+        const pool = atoutsGagnantsNonUtiles.length > 0 ? atoutsGagnantsNonUtiles : atoutsGagnants
+        const plusFaible = pool.reduce((min, c) =>
           ORDRE_RANGS[c.rang] < ORDRE_RANGS[min.rang] ? c : min
         )
         logger.debug('IA', `Intermédiaire — Couper As → ${plusFaible.rang}${plusFaible.couleur}`)
@@ -152,8 +164,6 @@ export function iaIntermediaire(candidats: Carte[], state: GameState): Carte {
     logger.debug('IA', `Intermédiaire — Pré-atout → ${preAtout.rang}${preAtout.couleur}`)
     return preAtout
   }
-
-  const cartesUtiles = cartesUtilesAuxCombis(state, 1)
 
   // Bloc RÉPONSE
   if (carteOuverte) {

@@ -24,11 +24,33 @@ import { carteAvecRangMinimal, candidatsGagnants } from './helpers'
  *   1. As étalé de même couleur → le jouer
  *   2. As en main de même couleur → le jouer
  *   3. Atout gagnant le plus faible → le jouer
+ *
+ * `cartesUtiles` (optionnel) : ensemble de cartes protégées par une
+ * combinaison en cours (mariage_atout actif, quinte en préparation,
+ * carré, bésigue — cf. cartesUtilesAuxCombis/tableCombinaisons.ts).
+ * Bugfix : quand PLUSIEURS cartes candidates existent à une même étape
+ * (plusieurs As d'atout, plusieurs atouts gagnants de même rang
+ * minimal…), une carte protégée n'est choisie QUE s'il n'existe aucune
+ * carte équivalente non protégée — ex. ne pas casser un mariage_atout
+ * étalé (Roi ou Dame) pour couper un 10 quand une autre carte gagnante
+ * non mariée fait aussi bien l'affaire. Avant ce correctif, le choix
+ * entre deux cartes de même rang (ex. deux Dames d'atout, l'une mariée
+ * et l'autre libre) dépendait uniquement de l'ordre du tableau
+ * `candidats`/`cartesEtalees`, sans aucune notion de protection — d'où
+ * un mariage cassé inutilement selon l'ordre, pas selon la stratégie.
+ *
+ * Paramètre omis (undefined) : aucune protection appliquée — c'est le
+ * comportement du niveau FACILE, qui n'a par conception aucune
+ * conscience des combinaisons (cf. niveau-facile.ts, qui n'appelle
+ * jamais cartesUtilesAuxCombis, y compris pour les brisques et
+ * l'ouverture — une contrainte de protection isolée ici serait
+ * incohérente avec le reste de son comportement volontairement naïf).
  */
 export function strategieCouper10(
   candidats: Carte[],
   carteOuverte: Carte,
-  state: GameState
+  state: GameState,
+  cartesUtiles?: Set<string>
 ): Carte | null {
   if (carteOuverte.rang !== '10') return null
 
@@ -36,14 +58,21 @@ export function strategieCouper10(
   const ia = state.joueurs[1]
   const estAtout = couleurAtout !== null && carteOuverte.couleur === couleurAtout
   const piocheRestante = state.pioche.length
+  const proteges = cartesUtiles ?? new Set<string>()
+  /** Préfère les cartes non protégées ; ne retombe sur les protégées que si aucune alternative libre n'existe. */
+  const preferLibres = (cartes: Carte[]): Carte[] => {
+    const libres = cartes.filter(c => !proteges.has(c.id))
+    return libres.length > 0 ? libres : cartes
+  }
 
   if (estAtout && couleurAtout) {
     const asAtout = candidats.filter(
       c => !c.estJoker && c.rang === 'A' && c.couleur === couleurAtout
     )
     if (asAtout.length > 1) {
+      const choix = preferLibres(asAtout)[0]
       logger.debug('IA', `Couper10-atout: plusieurs As d'atout → jouer un As atout`)
-      return asAtout[0]
+      return choix
     }
     if (asAtout.length === 1 && piocheRestante <= 2) {
       logger.debug('IA', `Couper10-atout: As unique + pioche=${piocheRestante} → jouer As atout`)
@@ -55,9 +84,9 @@ export function strategieCouper10(
   const couleur10 = carteOuverte.couleur
 
   // As étalé de même couleur
-  const asEtalees = ia.cartesEtalees.filter(
+  const asEtalees = preferLibres(ia.cartesEtalees.filter(
     c => !c.estJoker && c.rang === 'A' && c.couleur === couleur10
-  )
+  ))
   if (asEtalees.length > 0) {
     const asJouable = candidats.find(c => c.id === asEtalees[0].id)
     if (asJouable) {
@@ -67,9 +96,9 @@ export function strategieCouper10(
   }
 
   // As en main de même couleur
-  const asMain = ia.main.filter(
+  const asMain = preferLibres(ia.main.filter(
     c => !c.estJoker && c.rang === 'A' && c.couleur === couleur10
-  )
+  ))
   const asMainJouable = asMain.find(c => candidats.some(cand => cand.id === c.id))
   if (asMainJouable) {
     logger.debug('IA', `Couper10: As ${couleur10} depuis main → ${asMainJouable.id}`)
@@ -85,9 +114,11 @@ export function strategieCouper10(
       1
     )
     if (atoutsGagnants.length > 0) {
-      const plusFaible = atoutsGagnants.reduce((min, c) =>
+      const rangMinimal = atoutsGagnants.reduce((min, c) =>
         ORDRE_RANGS[c.rang] < ORDRE_RANGS[min.rang] ? c : min
-      )
+      ).rang
+      const auRangMinimal = atoutsGagnants.filter(c => c.rang === rangMinimal)
+      const plusFaible = preferLibres(auRangMinimal)[0]
       logger.debug('IA', `Couper10: atout gagnant le plus faible → ${plusFaible.rang}${plusFaible.couleur}`)
       return plusFaible
     }

@@ -279,7 +279,7 @@ describe('typesEncoreEligibles', () => {
 // ============================================================
 
 describe('Intégration — faille usagesCartes corrigée via appliquerAnnonce', () => {
-  it('un mariage_atout déjà annoncé (pipeline réel) n\'est plus protégé après coup', () => {
+  it('un mariage_atout déjà annoncé (pipeline réel) reste protégé tant que la quinte n\'est pas annoncée', () => {
     const roi = c('clubs', 'K')
     const dame = c('clubs', 'Q')
     const state = baseState('clubs')
@@ -290,22 +290,49 @@ describe('Intégration — faille usagesCartes corrigée via appliquerAnnonce', 
     expect(cartesUtilesAuxCombis(state, 1).has(dame.id)).toBe(true)
 
     // Annonce réelle via le pipeline (peuple state.usagesCartes ET déplace
-    // les cartes en cartesEtalees, comme en jeu réel)
+    // les cartes en cartesEtalees, ET enregistre le mariage comme actif
+    // dans state.mariagesAtoutActifs, comme en jeu réel)
     const stateApres = appliquerAnnonce(state, 1, {
       nom: 'mariage_atout', points: 40, cartesIds: [roi.id, dame.id],
     })
 
-    // Après annonce : plus aucune autre carte de même rang/couleur en main
-    // pour un carré → ces deux cartes précises n'ont plus AUCUN type
-    // éligible → ne doivent plus être protégées.
-    //
-    // Avec l'ANCIEN cartesUtilesAuxCombis (jamais de lecture de
-    // usagesCartes), ces deux cartes restaient protégées indéfiniment
-    // car il se contentait de refiltrer main+étalées par rang/couleur,
-    // sans jamais vérifier si CES cartes précises avaient déjà servi.
+    // Bugfix (rapporté) : un mariage_atout annoncé reste un prérequis actif
+    // pour la quinte (As+10+Valet d'atout — cf. detecterQuinte,
+    // combinaisons.ts, qui exige `mariagesAtoutActifs[joueurId].length > 0`).
+    // Le Roi et la Dame doivent donc rester protégés d'un sacrifice tant
+    // que la quinte n'a pas été annoncée — même si, par ailleurs, ces deux
+    // cartes précises n'ont plus aucun type éligible dans la matrice de
+    // combinaisons (plus aucun carré possible, mariage déjà utilisé).
+    // Casser ce mariage romprait définitivement l'éligibilité de la
+    // quinte pour la manche en cours (gererCassureMariageAtout).
     const protegesApres = cartesUtilesAuxCombis(stateApres, 1)
-    expect(protegesApres.has(roi.id)).toBe(false)
-    expect(protegesApres.has(dame.id)).toBe(false)
+    expect(protegesApres.has(roi.id)).toBe(true)
+    expect(protegesApres.has(dame.id)).toBe(true)
+  })
+
+  it('un mariage_atout annoncé n\'est PLUS protégé à ce titre une fois la quinte elle-même annoncée', () => {
+    const roi = c('clubs', 'K')
+    const dame = c('clubs', 'Q')
+    const state = baseState('clubs')
+    state.joueurs[1].main = [roi, dame]
+
+    const stateApres = appliquerAnnonce(state, 1, {
+      nom: 'mariage_atout', points: 40, cartesIds: [roi.id, dame.id],
+    })
+    // La quinte a servi son unique rôle vis-à-vis du mariage (prérequis
+    // consommé) : une fois annoncée, le mariage n'a plus besoin d'être
+    // protégé à ce titre — l'IA peut désormais le casser si nécessaire.
+    const stateAvecQuinte: GameState = {
+      ...stateApres,
+      annonces: [
+        ...(stateApres.annonces ?? []),
+        { joueurId: 1, nom: 'quinte', points: 250, cartesIds: [], mancheNumero: 1 },
+      ],
+    }
+
+    const proteges = cartesUtilesAuxCombis(stateAvecQuinte, 1)
+    expect(proteges.has(roi.id)).toBe(false)
+    expect(proteges.has(dame.id)).toBe(false)
   })
 
   it('après annonce, un carré (famille différente) reste protégé pour les mêmes cartes', () => {

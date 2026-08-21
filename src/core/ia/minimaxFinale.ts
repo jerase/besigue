@@ -35,12 +35,15 @@
 // dernier pli lors de sa recherche, sans dupliquer/modifier la règle
 // réelle).
 //
-// Portée du différentiel évalué : uniquement les brisques (As+10) et
-// le bonus dernier pli, conformément à la demande. Le bonus "7 d'atout"
-// (+10 pts, appliquerPli dans pli.ts) peut aussi survenir pendant les
-// plis restants de la phase finale mais n'est PAS inclus dans cette
-// évaluation — non demandé, signalé pour transparence plutôt que
-// silencieusement ajouté ou ignoré sans le dire.
+// Portée du différentiel évalué (piste 2) : brisques (As+10), bonus
+// dernier pli, ET bonus du 7 d'atout (+10 pts pour le joueur qui LE
+// JOUE — cf. appliquerPli dans pli.ts, bloc "Bonus 7 d'atout" — que ce
+// coup gagne le pli ou non, et indépendamment de la couleur ouverte).
+// Ce bonus est appliqué IMMÉDIATEMENT au tour où le 7 d'atout est joué
+// (deltaSeptAtout, cf. jouerCoup ci-dessous), jamais différé jusqu'à la
+// résolution du pli, pour rester fidèle à la règle réelle : c'est le
+// fait de JOUER la carte qui déclenche le bonus, pas le fait de
+// remporter le pli avec elle.
 //
 // Règles de suivi/coupe : entièrement déléguées à
 // cartesJouablesPhaseFinale et resoudrePli (pli.ts), jamais
@@ -55,6 +58,32 @@ import { cartesNonVues } from './memoire'
 
 /** Bonus (pour l'IA) / malus (pour l'adversaire) attribué au vainqueur du tout dernier pli de la manche. */
 export const BONUS_DERNIER_PLI_MINIMAX = 10
+
+/**
+ * Bonus (pour l'IA) / malus (pour l'adversaire) attribué au joueur qui
+ * JOUE le 7 d'atout — cf. appliquerPli (pli.ts), bloc "Bonus 7 d'atout" :
+ * `+10 pts` pour le siège qui pose la carte, que ce coup gagne le pli ou
+ * non. Valeur identique à celle réellement appliquée par le moteur
+ * (pli.ts) — même montant, pour rester fidèle à la règle réelle.
+ */
+export const BONUS_SEPT_ATOUT_MINIMAX = 10
+
+/**
+ * Bonus/malus immédiat (du point de vue IA − adversaire) déclenché par
+ * le fait de JOUER `carte` — indépendant de la résolution du pli en
+ * cours (contrairement à deltaBrisques, qui n'existe qu'au moment où
+ * le pli se résout). Réplique fidèlement la condition de pli.ts :
+ * carte non-Joker, rang '7', couleur === couleurAtout.
+ *
+ * Exportée (comme les autres petits helpers purs du module ia/,
+ * ex. calculerValeurEspereeBrisque) pour être testée directement,
+ * indépendamment de l'arbre minimax complet.
+ */
+export function bonusSeptAtout(joueur: 0 | 1, carte: Carte, couleurAtout: Couleur | null): number {
+  if (!couleurAtout) return 0
+  if (carte.estJoker || carte.rang !== '7' || carte.couleur !== couleurAtout) return 0
+  return joueur === 1 ? BONUS_SEPT_ATOUT_MINIMAX : -BONUS_SEPT_ATOUT_MINIMAX
+}
 
 // ============================================================
 // Déduction de la main adverse (jamais de lecture directe)
@@ -131,6 +160,13 @@ interface ResultatCoup {
   etat: EtatFinalSimplifie
   /** Différentiel de brisques (IA − adversaire) capturé PAR ce coup précis (0 si le pli n'est pas encore résolu). */
   deltaBrisques: number
+  /**
+   * Différentiel (IA − adversaire) du bonus 7 d'atout déclenché PAR ce
+   * coup précis (piste 2) — s'applique dès que la carte est jouée,
+   * QUE le pli se résolve ou non par ce même coup (contrairement à
+   * deltaBrisques, qui n'existe qu'à la résolution).
+   */
+  deltaSeptAtout: number
   pliResolu: boolean
   vainqueurPli: (0 | 1) | null
 }
@@ -138,12 +174,15 @@ interface ResultatCoup {
 /** Joue une carte depuis l'état courant → nouvel état + éventuel gain de brisques si le pli se résout. */
 function jouerCoup(etat: EtatFinalSimplifie, carte: Carte): ResultatCoup {
   const joueur = etat.joueurActif
+  const deltaSeptAtout = bonusSeptAtout(joueur, carte, etat.couleurAtout)
   const mainRestante = etat.mains[joueur].filter(c => c.id !== carte.id)
   const nouvellesMains: [Carte[], Carte[]] =
     joueur === 0 ? [mainRestante, etat.mains[1]] : [etat.mains[0], mainRestante]
 
   if (etat.carteOuverte === null) {
     // Ouverture du pli : pas encore de vainqueur, pas de gain de brisques
+    // — mais le bonus 7 d'atout, lui, s'applique déjà (il ne dépend pas
+    // de l'issue du pli, cf. bonusSeptAtout ci-dessus)
     return {
       etat: {
         mains: nouvellesMains,
@@ -153,6 +192,7 @@ function jouerCoup(etat: EtatFinalSimplifie, carte: Carte): ResultatCoup {
         joueurActif: joueur === 0 ? 1 : 0,
       },
       deltaBrisques: 0,
+      deltaSeptAtout,
       pliResolu: false,
       vainqueurPli: null,
     }
@@ -173,14 +213,15 @@ function jouerCoup(etat: EtatFinalSimplifie, carte: Carte): ResultatCoup {
       joueurActif: vainqueur,
     },
     deltaBrisques: vainqueur === 1 ? brisquesDuPli : -brisquesDuPli,
+    deltaSeptAtout,
     pliResolu: true,
     vainqueurPli: vainqueur,
   }
 }
 
 /** Valeur terminale d'un coup qui vient de résoudre le TOUT DERNIER pli de la manche. */
-function valeurDernierPli(deltaBrisques: number, vainqueurPli: 0 | 1): number {
-  return deltaBrisques + (vainqueurPli === 1 ? BONUS_DERNIER_PLI_MINIMAX : -BONUS_DERNIER_PLI_MINIMAX)
+function valeurDernierPli(deltaBrisques: number, deltaSeptAtout: number, vainqueurPli: 0 | 1): number {
+  return deltaBrisques + deltaSeptAtout + (vainqueurPli === 1 ? BONUS_DERNIER_PLI_MINIMAX : -BONUS_DERNIER_PLI_MINIMAX)
 }
 
 // ============================================================
@@ -208,11 +249,11 @@ function minimax(etat: EtatFinalSimplifie, alpha: number, beta: number): number 
   let b = beta
 
   for (const coup of coups) {
-    const { etat: suivant, deltaBrisques, pliResolu, vainqueurPli } = jouerCoup(etat, coup)
+    const { etat: suivant, deltaBrisques, deltaSeptAtout, pliResolu, vainqueurPli } = jouerCoup(etat, coup)
 
     const valeur = pliResolu && terminee(suivant)
-      ? valeurDernierPli(deltaBrisques, vainqueurPli!)
-      : deltaBrisques + minimax(suivant, a, b)
+      ? valeurDernierPli(deltaBrisques, deltaSeptAtout, vainqueurPli!)
+      : deltaBrisques + deltaSeptAtout + minimax(suivant, a, b)
 
     if (maximise) {
       if (valeur > meilleur) meilleur = valeur
@@ -257,11 +298,11 @@ export function choisirCarteMinimaxFinale(candidats: Carte[], state: GameState):
   const beta = Infinity
 
   for (const coup of coups) {
-    const { etat: suivant, deltaBrisques, pliResolu, vainqueurPli } = jouerCoup(etatInitial, coup)
+    const { etat: suivant, deltaBrisques, deltaSeptAtout, pliResolu, vainqueurPli } = jouerCoup(etatInitial, coup)
 
     const valeur = pliResolu && terminee(suivant)
-      ? valeurDernierPli(deltaBrisques, vainqueurPli!)
-      : deltaBrisques + minimax(suivant, alpha, beta)
+      ? valeurDernierPli(deltaBrisques, deltaSeptAtout, vainqueurPli!)
+      : deltaBrisques + deltaSeptAtout + minimax(suivant, alpha, beta)
 
     if (valeur > meilleureValeur) {
       meilleureValeur = valeur
